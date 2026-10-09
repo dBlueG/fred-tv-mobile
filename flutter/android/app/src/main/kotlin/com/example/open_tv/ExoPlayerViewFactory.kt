@@ -8,10 +8,11 @@ import io.flutter.plugin.platform.PlatformViewFactory
 
 class ExoPlayerViewFactory(
     private val messenger: BinaryMessenger,
+    private val onPipStateChanged: () -> Unit,
 ) : PlatformViewFactory(StandardMessageCodec.INSTANCE) {
     override fun create(context: Context, viewId: Int, args: Any?): PlatformView {
         @Suppress("UNCHECKED_CAST")
         val params = (args as? Map<String, Any?>) ?: emptyMap()
-        return ExoPlayerView(context, messenger, viewId, params)
+        return ExoPlayerView(context, messenger, viewId, params, onPipStateChanged)
     }
 }

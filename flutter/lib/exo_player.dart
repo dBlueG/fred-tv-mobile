@@ -69,6 +69,7 @@ class _ExoPlayerScreenState extends State<ExoPlayerScreen> {
         "isLive": _isLive,
         "startPositionMs": (seconds ?? 0) * 1000,
         "title": widget.channel.name,
+        "image": widget.channel.image,
         "referer": headers?.referrer,
         "origin": headers?.httpOrigin,
         "userAgent": headers?.userAgent,

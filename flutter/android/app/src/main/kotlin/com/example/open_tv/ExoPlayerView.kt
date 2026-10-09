@@ -1,12 +1,15 @@
 package dev.fredol.open_tv
 
 import android.app.AlertDialog
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import android.util.Rational
 import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
@@ -16,9 +19,11 @@ import androidx.media3.common.C
 import androidx.media3.common.Format
 import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionOverride
+import androidx.media3.common.VideoSize
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
@@ -26,6 +31,7 @@ import androidx.media3.exoplayer.LoadControl
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy
 import androidx.media3.exoplayer.util.EventLogger
+import androidx.media3.session.MediaSession
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.DefaultTimeBar
 import androidx.media3.ui.PlayerView
@@ -40,12 +46,14 @@ class ExoPlayerView(
     messenger: BinaryMessenger,
     viewId: Int,
     params: Map<String, Any?>,
+    private val onPipStateChanged: () -> Unit,
 ) : PlatformView, MethodChannel.MethodCallHandler {
 
     private val isLive = params["isLive"] as? Boolean ?: false
     private val url = params["url"] as String
     private val startPositionMs = (params["startPositionMs"] as? Number)?.toLong() ?: 0L
     private val title = params["title"] as? String ?: ""
+    private val image = params["image"] as? String
     private val debug = (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
 
     private val methodChannel = MethodChannel(messenger, "dev.fredol.open_tv/exoplayer_$viewId")
@@ -53,6 +61,8 @@ class ExoPlayerView(
     private val player: ExoPlayer
     private val playerView: PlayerView
     private val root: FrameLayout
+    private val appContext = context.applicationContext
+    val session: MediaSession
 
     private var zoomed = false
     private var reconnecting = false
@@ -69,6 +79,9 @@ class ExoPlayerView(
         const val BUFFER_RESUME_AFTER_REBUFFER_MS = 10_000
         const val HTTP_CONNECT_TIMEOUT_MS = 15_000
         const val HTTP_READ_TIMEOUT_MS = 60_000
+        // Android rejects PiP aspect ratios outside 1:2.39 .. 2.39:1.
+        val PIP_MAX_RATIO = Rational(239, 100)
+        val PIP_MIN_RATIO = Rational(100, 239)
     }
 
     init {
@@ -91,7 +104,13 @@ class ExoPlayerView(
         attachPlayer()
         bindControls()
         observeForReconnect()
+        observeForPip()
+        session = MediaSession.Builder(context, restrictedPlayer(player, sessionBlockedCommands(isLive)))
+            .setId("exoplayer_$viewId")
+            .setSessionActivity(openAppIntent())
+            .build()
         active = this
+        appContext.startService(Intent(appContext, PlaybackService::class.java))
         startPlayback()
     }
 
@@ -111,7 +130,7 @@ class ExoPlayerView(
     }
 
     private fun attachPlayer() {
-        playerView.player = restrictedPlayer(player, isLive)
+        playerView.player = restrictedPlayer(player, blockedCommands(isLive))
         playerView.setShowSubtitleButton(true)
         playerView.setShowNextButton(false)
         playerView.setShowPreviousButton(false)
@@ -182,15 +201,56 @@ class ExoPlayerView(
         else -> "UNKNOWN($state)"
     }
 
+    private fun observeForPip() {
+        player.addListener(object : Player.Listener {
+            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) = onPipStateChanged()
+            override fun onVideoSizeChanged(videoSize: VideoSize) = onPipStateChanged()
+        })
+    }
+
+    private fun openAppIntent(): PendingIntent {
+        val intent = appContext.packageManager.getLaunchIntentForPackage(appContext.packageName)!!
+            .setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        return PendingIntent.getActivity(appContext, 0, intent, PendingIntent.FLAG_IMMUTABLE)
+    }
+
+    private fun mediaItem(): MediaItem {
+        val metadata = MediaMetadata.Builder()
+            .setTitle(title)
+            .apply { if (!image.isNullOrEmpty()) setArtworkUri(Uri.parse(image)) }
+            .build()
+        return MediaItem.Builder()
+            .setUri(Uri.parse(url))
+            .setMediaMetadata(metadata)
+            .build()
+    }
+
+    val wantsPlayback: Boolean get() = player.playWhenReady
+
+    fun pipAspectRatio(): Rational? {
+        val size = player.videoSize
+        if (size.width == 0 || size.height == 0) return null
+        val ratio = Rational((size.width * size.pixelWidthHeightRatio).toInt(), size.height)
+        return when {
+            ratio > PIP_MAX_RATIO -> PIP_MAX_RATIO
+            ratio < PIP_MIN_RATIO -> PIP_MIN_RATIO
+            else -> ratio
+        }
+    }
+
+    fun onPipModeChanged(inPip: Boolean) {
+        if (inPip) playerView.hideController()
+        playerView.useController = !inPip
+    }
+
     private fun startPlayback() {
-        player.setMediaItem(MediaItem.fromUri(Uri.parse(url)))
+        player.setMediaItem(mediaItem())
         if (!isLive && startPositionMs > 0) player.seekTo(startPositionMs)
         player.playWhenReady = true
         player.prepare()
     }
 
-    private fun restrictedPlayer(delegate: Player, isLive: Boolean): Player {
-        val blocked = blockedCommands(isLive)
+    private fun restrictedPlayer(delegate: Player, blocked: IntArray): Player {
         return object : ForwardingPlayer(delegate) {
             override fun getAvailableCommands(): Player.Commands {
                 val builder = super.getAvailableCommands().buildUpon()
@@ -219,6 +279,11 @@ class ExoPlayerView(
         }
         return blocked.toIntArray()
     }
+
+    // The notification keeps play/pause for live streams so background audio can be stopped;
+    // resuming a stale live position is handled by the reconnect logic.
+    private fun sessionBlockedCommands(isLive: Boolean): IntArray =
+        blockedCommands(isLive).filter { it != Player.COMMAND_PLAY_PAUSE }.toIntArray()
 
     private fun hideLiveControls() {
         intArrayOf(
@@ -355,7 +420,7 @@ class ExoPlayerView(
         reconnectAttempts++
         handler.postDelayed({
             reconnecting = false
-            player.setMediaItem(MediaItem.fromUri(Uri.parse(url)))
+            player.setMediaItem(mediaItem())
             player.playWhenReady = true
             player.prepare()
         }, delay)
@@ -371,9 +436,15 @@ class ExoPlayerView(
     override fun getView(): View = root
 
     override fun dispose() {
-        if (active === this) active = null
+        val wasActive = active === this
+        if (wasActive) active = null
         methodChannel.setMethodCallHandler(null)
         handler.removeCallbacksAndMessages(null)
+        session.release()
+        if (wasActive) {
+            appContext.stopService(Intent(appContext, PlaybackService::class.java))
+            onPipStateChanged()
+        }
         playerView.player = null
         player.release()
     }
