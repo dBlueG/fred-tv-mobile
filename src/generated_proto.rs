@@ -102,6 +102,8 @@ pub struct Filters {
     pub sort: u32,
     #[prost(int64, optional, tag = "10")]
     pub season: ::core::option::Option<i64>,
+    #[prost(int64, optional, tag = "11")]
+    pub favorite_list_id: ::core::option::Option<i64>,
 }
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ToggleFavorite {
@@ -109,6 +111,39 @@ pub struct ToggleFavorite {
     pub channel_id: i64,
     #[prost(bool, tag = "2")]
     pub favorite: bool,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct FavoriteList {
+    #[prost(int64, tag = "1")]
+    pub id: i64,
+    #[prost(string, tag = "2")]
+    pub name: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct FavoriteListList {
+    #[prost(message, repeated, tag = "1")]
+    pub lists: ::prost::alloc::vec::Vec<FavoriteList>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct SetChannelFavoriteLists {
+    #[prost(int64, tag = "1")]
+    pub channel_id: i64,
+    #[prost(bool, tag = "2")]
+    pub favorite: bool,
+    #[prost(int64, repeated, tag = "3")]
+    pub list_ids: ::prost::alloc::vec::Vec<i64>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct RenameFavoriteList {
+    #[prost(int64, tag = "1")]
+    pub id: i64,
+    #[prost(string, tag = "2")]
+    pub name: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct IdList {
+    #[prost(int64, repeated, tag = "1")]
+    pub ids: ::prost::alloc::vec::Vec<i64>,
 }
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct IdMessage {
@@ -201,7 +236,7 @@ pub struct FfiResult {
     pub success: bool,
     #[prost(string, optional, tag = "2")]
     pub error_message: ::core::option::Option<::prost::alloc::string::String>,
-    #[prost(oneof = "ffi_result::Data", tags = "3, 4, 6, 7, 8, 9, 10, 11, 12")]
+    #[prost(oneof = "ffi_result::Data", tags = "3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15")]
     pub data: ::core::option::Option<ffi_result::Data>,
 }
 /// Nested message and enum types in `FFIResult`.
@@ -226,6 +261,12 @@ pub mod ffi_result {
         SourceList(super::SourceList),
         #[prost(message, tag = "12")]
         Expiries(super::Expiries),
+        #[prost(message, tag = "13")]
+        FavoriteList(super::FavoriteList),
+        #[prost(message, tag = "14")]
+        FavoriteLists(super::FavoriteListList),
+        #[prost(message, tag = "15")]
+        IdList(super::IdList),
     }
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]

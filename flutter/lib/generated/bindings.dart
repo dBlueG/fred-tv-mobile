@@ -1712,6 +1712,142 @@ class RustLibBindings {
         void Function(int, FfiCallback, ffi.Pointer<ffi.Uint8>, int)
       >();
 
+  void get_favorite_lists(int task_id, FfiCallback callback) {
+    return _get_favorite_lists(task_id, callback);
+  }
+
+  late final _get_favorite_listsPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Uint64, FfiCallback)>>(
+        'get_favorite_lists',
+      );
+  late final _get_favorite_lists = _get_favorite_listsPtr
+      .asFunction<void Function(int, FfiCallback)>();
+
+  void create_favorite_list(
+    int task_id,
+    FfiCallback callback,
+    ffi.Pointer<ffi.Uint8> ptr,
+    int len,
+  ) {
+    return _create_favorite_list(task_id, callback, ptr, len);
+  }
+
+  late final _create_favorite_listPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Uint64,
+            FfiCallback,
+            ffi.Pointer<ffi.Uint8>,
+            ffi.Size,
+          )
+        >
+      >('create_favorite_list');
+  late final _create_favorite_list = _create_favorite_listPtr
+      .asFunction<
+        void Function(int, FfiCallback, ffi.Pointer<ffi.Uint8>, int)
+      >();
+
+  void rename_favorite_list(
+    int task_id,
+    FfiCallback callback,
+    ffi.Pointer<ffi.Uint8> ptr,
+    int len,
+  ) {
+    return _rename_favorite_list(task_id, callback, ptr, len);
+  }
+
+  late final _rename_favorite_listPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Uint64,
+            FfiCallback,
+            ffi.Pointer<ffi.Uint8>,
+            ffi.Size,
+          )
+        >
+      >('rename_favorite_list');
+  late final _rename_favorite_list = _rename_favorite_listPtr
+      .asFunction<
+        void Function(int, FfiCallback, ffi.Pointer<ffi.Uint8>, int)
+      >();
+
+  void delete_favorite_list(
+    int task_id,
+    FfiCallback callback,
+    ffi.Pointer<ffi.Uint8> ptr,
+    int len,
+  ) {
+    return _delete_favorite_list(task_id, callback, ptr, len);
+  }
+
+  late final _delete_favorite_listPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Uint64,
+            FfiCallback,
+            ffi.Pointer<ffi.Uint8>,
+            ffi.Size,
+          )
+        >
+      >('delete_favorite_list');
+  late final _delete_favorite_list = _delete_favorite_listPtr
+      .asFunction<
+        void Function(int, FfiCallback, ffi.Pointer<ffi.Uint8>, int)
+      >();
+
+  void get_channel_favorite_lists(
+    int task_id,
+    FfiCallback callback,
+    ffi.Pointer<ffi.Uint8> ptr,
+    int len,
+  ) {
+    return _get_channel_favorite_lists(task_id, callback, ptr, len);
+  }
+
+  late final _get_channel_favorite_listsPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Uint64,
+            FfiCallback,
+            ffi.Pointer<ffi.Uint8>,
+            ffi.Size,
+          )
+        >
+      >('get_channel_favorite_lists');
+  late final _get_channel_favorite_lists = _get_channel_favorite_listsPtr
+      .asFunction<
+        void Function(int, FfiCallback, ffi.Pointer<ffi.Uint8>, int)
+      >();
+
+  void set_channel_favorite_lists(
+    int task_id,
+    FfiCallback callback,
+    ffi.Pointer<ffi.Uint8> ptr,
+    int len,
+  ) {
+    return _set_channel_favorite_lists(task_id, callback, ptr, len);
+  }
+
+  late final _set_channel_favorite_listsPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Uint64,
+            FfiCallback,
+            ffi.Pointer<ffi.Uint8>,
+            ffi.Size,
+          )
+        >
+      >('set_channel_favorite_lists');
+  late final _set_channel_favorite_lists = _set_channel_favorite_listsPtr
+      .asFunction<
+        void Function(int, FfiCallback, ffi.Pointer<ffi.Uint8>, int)
+      >();
+
   void free_message(ffi.Pointer<ffi.Uint8> ptr, int len) {
     return _free_message(ptr, len);
   }

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<dev.fredol.open_tv.PlayerGestureLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -14,4 +14,33 @@
         app:show_subtitle_button="true"
         app:auto_show="true"
         app:controller_layout_id="@layout/custom_player_control_view" />
-</FrameLayout>
+
+    <LinearLayout
+        android:id="@+id/gesture_indicator"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:background="@drawable/bg_player_indicator"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="20dp"
+        android:paddingVertical="12dp"
+        android:visibility="gone">
+
+        <ImageView
+            android:id="@+id/gesture_indicator_icon"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:importantForAccessibility="no" />
+
+        <ProgressBar
+            android:id="@+id/gesture_indicator_level"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="160dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:max="100"
+            android:progressTint="@android:color/white"
+            android:progressBackgroundTint="#66FFFFFF" />
+    </LinearLayout>
+</dev.fredol.open_tv.PlayerGestureLayout>

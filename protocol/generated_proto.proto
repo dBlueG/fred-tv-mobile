@@ -74,11 +74,36 @@ message Filters {
   bool use_keywords = 8;
   uint32 sort = 9;
   optional int64 season = 10;
+  optional int64 favorite_list_id = 11;
 }
 
 message ToggleFavorite {
   int64 channel_id = 1;
   bool favorite = 2;
+}
+
+message FavoriteList {
+  int64 id = 1;
+  string name = 2;
+}
+
+message FavoriteListList {
+  repeated FavoriteList lists = 1;
+}
+
+message SetChannelFavoriteLists {
+  int64 channel_id = 1;
+  bool favorite = 2;
+  repeated int64 list_ids = 3;
+}
+
+message RenameFavoriteList {
+  int64 id = 1;
+  string name = 2;
+}
+
+message IdList {
+  repeated int64 ids = 1;
 }
 
 message IdMessage {
@@ -156,6 +181,9 @@ message FFIResult {
     GetEnabledSourcesMinimal enabled_sources_minimal = 10;
     SourceList source_list = 11;
     Expiries expiries = 12;
+    FavoriteList favorite_list = 13;
+    FavoriteListList favorite_lists = 14;
+    IdList id_list = 15;
   }
 }
 

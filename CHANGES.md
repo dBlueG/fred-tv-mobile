@@ -7,12 +7,17 @@ project (`Fredolx/fred-tv-mobile`).
 |---|---|---|---|
 | 1 | [Media notification and lock-screen controls](#1-media-notification-and-lock-screen-controls) | 2026-10-09 | Android player |
 | 2 | [Picture-in-Picture](#2-picture-in-picture) | 2026-10-09 | Android player |
-| 3 | [Debug builds install alongside the release app](#3-debug-builds-install-alongside-the-release-app) | 2026-10-09 | Android build |
+| 3 | [Debug and release builds install alongside the store app](#3-debug-and-release-builds-install-alongside-the-store-app) | 2026-10-09 | Android build |
 | 4 | [Build toolchain upgrade for Java 25](#4-build-toolchain-upgrade-for-java-25) | 2026-10-09 | Android build |
 | 5 | [Repository remotes](#5-repository-remotes) | 2026-10-09 | Git |
+| 6 | [Volume and brightness gestures](#6-volume-and-brightness-gestures) | 2026-10-09 | Android player |
+| 7 | [Multiple favorite lists](#7-multiple-favorite-lists) | 2026-10-09 | Rust core, Flutter UI |
+| 8 | [Building the Rust core on Windows](#8-building-the-rust-core-on-windows) | 2026-10-09 | Build setup |
+| 9 | [Faster Xtream refresh](#9-faster-xtream-refresh) | 2026-10-09 | Rust core |
 
-Only the Android app is affected. iOS, macOS, Windows and Linux use `media_kit`
-for playback and are unchanged.
+Changes 1–4 and 6 only affect the Android app. iOS, macOS, Windows and Linux
+use `media_kit` for playback, so their players are unchanged. Change 7 is in the
+shared Rust core and Flutter UI; see its notes on other platforms.
 
 Paths below are relative to the repository root. The Android player sources
 live in `flutter/android/app/src/main/kotlin/com/example/open_tv/` (package
@@ -196,7 +201,7 @@ The app had no Picture-in-Picture support on any platform.
 
 ---
 
-## 3. Debug builds install alongside the release app
+## 3. Debug and release builds install alongside the store app
 
 **Date:** 2026-10-09
 
@@ -216,14 +221,21 @@ buildTypes {
         // Installs side by side with the release app.
         applicationIdSuffix ".debug"
     }
-    ...
+    release {
+        applicationIdSuffix ".release"
+        ...
+    }
 }
 ```
 
 - Debug builds (including `flutter run`) now use the package ID
   `dev.fredol.open_tv.debug`, so they install as a separate app with their own data.
-- Release builds keep `dev.fredol.open_tv`.
-- Both apps are called "Fred TV" and have the same icon.
+- Release builds use `dev.fredol.open_tv.release`, so they also install next to
+  the originally installed app instead of failing on the signing mismatch.
+- All three apps are called "Fred TV" and have the same icon.
+- Because the release package ID changed, a release build from this repo won't
+  update an earlier release build that used `dev.fredol.open_tv`; it installs as
+  a separate app with its own data.
 
 ### Note on release signing
 
@@ -313,3 +325,263 @@ To pull in upstream changes:
 git fetch upstream
 git merge upstream/main
 ```
+
+---
+
+## 6. Volume and brightness gestures
+
+**Date:** 2026-10-09
+**Branch:** `gestures-and-favorite-lists`
+
+### Behavior
+
+- **Right half of the screen, drag up/down:** media volume (the same volume the
+  hardware buttons control).
+- **Left half, drag up/down:** screen brightness, for this app only. No
+  permission is needed, and the system brightness comes back when the player closes.
+- Dragging the full screen height covers the whole range (0–100%).
+- A small indicator (icon and level bar) shows in the middle of the screen while
+  dragging and fades out 0.7 s after release. The volume icon switches to
+  "muted" at 0%.
+- Taps still show/hide the controls, and the buttons and seek bar work as before.
+  A drag only counts once the finger has moved past the system touch slop, and
+  mostly vertically (1.5× more vertical than horizontal).
+- Drags that start in the top or bottom 8% of the screen are ignored, so they
+  don't clash with the notification shade or gesture navigation.
+- Gestures are off in Picture-in-Picture and on devices without a touchscreen
+  (Android TV).
+
+### File changes
+
+**`PlayerGestureLayout.kt`** (new)
+A `FrameLayout` that replaces the root of the player layout. It watches touches
+in `onInterceptTouchEvent`. It only takes over a touch once it is clearly a
+vertical drag, at which point the children get `ACTION_CANCEL`, so taps and
+horizontal moves still reach the player and its controls. The seek bar asks
+parents not to intercept while scrubbing, so it keeps working too. Reports
+`onVerticalDragStart(leftSide)`, `onVerticalDrag(delta)` (fraction of height,
+positive = up) and `onVerticalDragEnd()`.
+
+**`PlayerGestureController.kt`** (new)
+Applies the drags:
+- Volume via `AudioManager.setStreamVolume(STREAM_MUSIC, …)`. The level is
+  tracked as a float, so slow drags add up across volume steps.
+- Brightness via the activity window's `screenBrightness` (minimum 1%). The
+  starting value is the current override or, if none, the system brightness
+  setting. `release()` resets it to `BRIGHTNESS_OVERRIDE_NONE`.
+- Updates the indicator icon and level.
+
+**`res/layout/exo_player_container.xml`**
+The root is now `PlayerGestureLayout`. The indicator (`gesture_indicator`, with
+an icon and a horizontal `ProgressBar`) is added above the `PlayerView`.
+
+**`res/drawable/`** (new): `ic_player_volume.xml`, `ic_player_volume_off.xml`,
+`ic_player_brightness.xml`, `bg_player_indicator.xml`.
+
+**`ExoPlayerView.kt`**
+- Takes the `Activity` (needed for the window brightness), creates the
+  controller and connects it to the layout.
+- Gestures are enabled only if the device has `FEATURE_TOUCHSCREEN`, and are
+  turned off while in PiP.
+- `dispose()` calls `gestures.release()` to restore system brightness.
+
+**`ExoPlayerViewFactory.kt`, `MainActivity.kt`**
+Pass the activity through to the player view.
+
+**`flutter/lib/exo_player.dart`**
+The platform view now registers an `EagerGestureRecognizer`, so Flutter hands
+every touch (including vertical drags) to the native view instead of keeping
+them for its own gesture arena.
+
+---
+
+## 7. Multiple favorite lists
+
+**Date:** 2026-10-09
+**Branch:** `gestures-and-favorite-lists`
+
+### Behavior
+
+- **The main Favorites view is unchanged** and shows every favorite. Being in
+  any list also makes a channel a favorite.
+- **List chips:** the Favorites screen has a row of chips under the search box:
+  `All`, one chip per list, and `+ New list`. Tapping a chip shows only that list.
+  This works with a TV remote too.
+- **Managing lists:** long-press a list chip, or select it and press the `⋮`
+  button, to **Rename** or **Delete** it. Deleting a list doesn't remove its
+  channels from the main favorites.
+- **Favoriting a channel** (long-press on a tile, or holding Select on a remote):
+  - **No lists yet:** toggles the favorite instantly, as before.
+  - **Lists exist:** opens a dialog with one checkbox per list (already ticked for
+    the lists the channel is in), `+ New list` (creates a list and ticks it), and
+    **Save**. If the channel is already a favorite, **Remove** takes it out of
+    favorites and every list.
+- On the Favorites screen, the grid reloads after a change, so a channel removed
+  from the selected list disappears from it.
+- The snackbar now says "Removed from favorites" or "Favorite lists updated"
+  where appropriate. It used to say "Added to favorites" even when removing.
+- **Source refresh:** a refresh deletes and re-creates a source's channels.
+  Favorites were already re-matched by channel name afterwards, and list
+  membership is now kept the same way.
+
+### Data model
+
+A third migration in `apply_main_migrations` (`src/sql.rs`):
+
+```sql
+CREATE TABLE "favorite_lists" (
+  "id"   INTEGER PRIMARY KEY,
+  "name" varchar(100) NOT NULL COLLATE NOCASE
+);
+CREATE TABLE "favorite_list_channels" (
+  "list_id"    integer NOT NULL,
+  "channel_id" integer NOT NULL,
+  PRIMARY KEY (list_id, channel_id)
+);
+CREATE UNIQUE INDEX index_favorite_lists_name ON favorite_lists(name);
+CREATE INDEX index_favorite_list_channels_channel_id ON favorite_list_channels(channel_id);
+```
+
+- `channels.favorite` still means "is a favorite", so existing favorites and
+  the main view need no data changes.
+- List names are unique regardless of case (`COLLATE NOCASE`).
+- SQLite foreign keys are not enabled in this app (`PRAGMA foreign_keys` is never
+  set), so `ON DELETE CASCADE` never runs. List entries are therefore removed in
+  code whenever channels or lists are deleted.
+
+### Rust core (`src/`)
+
+**`sql.rs`**
+- `get_favorite_lists`, `create_favorite_list`, `rename_favorite_list`,
+  `delete_favorite_list`. Names are trimmed and must be non-empty and not
+  already used.
+- `get_channel_favorite_lists(channel_id)` and
+  `set_channel_favorite_lists(channel_id, favorite, list_ids)`. The latter sets
+  the favorite flag and replaces the channel's lists in one transaction; a
+  non-favorite can't be in any list.
+- `favorite_channel(id, false)` now also removes the channel from every list.
+- `search()`: in the Favorites view, `Filters.favorite_list_id` limits results
+  to that list.
+- `delete_channels_by_source` (used by refresh) and `delete_source` remove the
+  source's list entries first.
+- `get_preserve` / `restore_preserve` save each favorite's list IDs before a
+  refresh and re-add them, matched by channel name, afterwards.
+- New test `test_favorite_lists::favorite_lists_flow` covers creating,
+  validating, filtering, refreshing, renaming, removing, deleting a list and
+  deleting a source against a real SQLite database.
+
+**`types.rs`**: `FavoriteList`; `Filters.favorite_list_id`; `ChannelPreserve.list_ids`.
+
+**`lib.rs`**: new FFI functions `get_favorite_lists`, `create_favorite_list`,
+`rename_favorite_list`, `delete_favorite_list`, `get_channel_favorite_lists`,
+`set_channel_favorite_lists`.
+
+**`protocol/generated_proto.proto`**: messages `FavoriteList`,
+`FavoriteListList`, `SetChannelFavoriteLists`, `RenameFavoriteList`, `IdList`;
+`Filters.favorite_list_id`; three new `FFIResult` data types.
+
+**Generated code:** `src/generated_proto.rs` and
+`flutter/lib/generated/generated_proto.pb*.dart` regenerated with `protoc`
+(Dart with `protoc_plugin` 25.0.0, which matches the app's `protobuf` 6.0.0;
+25.1.0 requires `protobuf` 6.1). The six new functions were added to
+`flutter/lib/generated/bindings.dart` by hand in ffigen's format, because the
+existing file was generated on Linux and a Windows ffigen run would rewrite all of it.
+
+**Android libraries:** `flutter/android/app/src/main/jniLibs/*/libfred_tv_lib.so`
+rebuilt for arm64-v8a, armeabi-v7a and x86_64.
+
+### Flutter (`flutter/lib/`)
+
+- `models/favorite_list.dart` (new), `models/filters.dart` (`favoriteListId`),
+  `extensions/proto_extensions.dart`.
+- `native_bridge.dart`: wrappers for the six FFI functions.
+- `task_service.dart`: write operations go through the "busy" check (blocked
+  during a refresh, like favoriting already was). A `favoriteListsVersion`
+  notifier lets the chip row reload when lists change anywhere.
+- `favorite_lists_dialog.dart` (new): `FavoriteListsDialog` (checkboxes),
+  `FavoriteListNameDialog` (name input with empty/duplicate checks), and
+  `promptCreateFavoriteList`.
+- `favorite_list_bar.dart` (new): the chip row with rename/delete actions.
+- `channel_tile.dart`: the new favoriting flow; `onFavoriteChanged` callback.
+- `home.dart`: shows the chip row on the top-level Favorites screen (phone and
+  TV mode) and filters by the selected list.
+
+### Other platforms
+
+The Dart UI is shared, but each platform has its own prebuilt Rust library.
+Only the Android libraries were rebuilt. Before shipping Linux or Windows, rebuild
+their library (`cargo cmd build-linux` / `cargo cmd build-windows`; the Windows CI
+workflow already builds from source). Until then, favoriting on those platforms
+shows an error once a list exists, because the new functions are missing from
+the old library.
+
+---
+
+## 8. Building the Rust core on Windows
+
+**Date:** 2026-10-09
+
+The repo's `cargo cmd` scripts assume Linux. To rebuild the Android libraries on
+this Windows machine, the following was installed:
+
+| Tool | Installed with | Why |
+|---|---|---|
+| Visual Studio 2022 Build Tools (C++ workload) | `winget` | Host linker for Rust build scripts and tests |
+| Rust (`rustup`, stable) + `aarch64-linux-android`, `armv7-linux-androideabi`, `x86_64-linux-android` | `winget`, `rustup` | Compiler and Android targets |
+| `cargo-ndk`, `protoc-gen-prost` | `cargo install` | Android builds, Rust protobuf generation |
+| `protoc` 36 | `winget` (Google.Protobuf) | Protobuf compiler |
+| `protoc_plugin` 25.0.0 | `dart pub global activate` | Dart protobuf generation |
+| MSYS2 (`perl`, `make`) | `winget`, `pacman` | Building the vendored OpenSSL for Android needs a Unix-style Perl and make |
+| LLVM, Strawberry Perl | `winget` | Installed while trying alternatives; not needed for the final build |
+
+Commands (Git Bash; MSYS2 goes **last** in `PATH` so its `link.exe` doesn't
+shadow the MSVC linker):
+
+```sh
+# Protobuf code
+protoc --prost_opt=flat_output_dir=true --prost_out=src -I ./protocol/ generated_proto.proto
+protoc --plugin=protoc-gen-dart="$LOCALAPPDATA/Pub/Cache/bin/protoc-gen-dart.bat" \
+  --dart_out=flutter/lib/generated -I ./protocol/ generated_proto.proto
+
+# Tests
+cargo test
+
+# Android libraries
+export PATH="$HOME/.cargo/bin:$PATH:/c/msys64/usr/bin"
+export ANDROID_NDK_HOME="$LOCALAPPDATA/Android/Sdk/ndk/29.0.14206865"
+export OPENSSL_SRC_PERL="C:/msys64/usr/bin/perl.exe" MAKE="C:/msys64/usr/bin/make.exe"
+cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 --platform 24 \
+  -o flutter/android/app/src/main/jniLibs build --release
+```
+
+Known test failure: `m3u::test_m3u::test_get_channel_from_lines` (from upstream)
+expects two different names for the same input line, so it can't pass. It is
+unrelated to these changes.
+
+---
+
+## 9. Faster Xtream refresh
+
+**Date:** 2026-10-09
+**Branch:** `gestures-and-favorite-lists`
+
+### Behavior
+
+Refreshing an Xtream source (and loading series episodes) needs less data and
+fewer connections. Nothing changes in the UI.
+
+### File changes
+
+**`Cargo.toml`**
+Added the `gzip`, `brotli` and `deflate` features to `reqwest` for both the
+Android (`native-tls-vendored`) and desktop (`rustls`) builds. The client now
+sends `Accept-Encoding` and decompresses responses on its own. Xtream channel lists
+are large JSON documents, so compressed responses are much smaller.
+
+**`src/xtream.rs`**
+- New `build_client(source)` creates one `reqwest::Client` with the source's
+  user agent.
+- `get_xtream` builds one client per refresh and passes it to the six parallel
+  `get_xtream_http_data` requests. Before, each request built its own client,
+  so none of them could share connections.
+- `get_episodes` and `get_status` use `build_client` as well.

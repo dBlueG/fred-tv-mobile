@@ -417,12 +417,22 @@ const Filters$json = {
       '10': 'season',
       '17': true
     },
+    {
+      '1': 'favorite_list_id',
+      '3': 11,
+      '4': 1,
+      '5': 3,
+      '9': 4,
+      '10': 'favoriteListId',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_query'},
     {'1': '_series_id'},
     {'1': '_group_id'},
     {'1': '_season'},
+    {'1': '_favorite_list_id'},
   ],
 };
 
@@ -434,8 +444,9 @@ final $typed_data.Uint8List filtersDescriptor = $convert.base64Decode(
     'ZpZXdUeXBlUgh2aWV3VHlwZRISCgRwYWdlGAUgASgNUgRwYWdlEiAKCXNlcmllc19pZBgGIAEo'
     'A0gBUghzZXJpZXNJZIgBARIeCghncm91cF9pZBgHIAEoA0gCUgdncm91cElkiAEBEiEKDHVzZV'
     '9rZXl3b3JkcxgIIAEoCFILdXNlS2V5d29yZHMSEgoEc29ydBgJIAEoDVIEc29ydBIbCgZzZWFz'
-    'b24YCiABKANIA1IGc2Vhc29uiAEBQggKBl9xdWVyeUIMCgpfc2VyaWVzX2lkQgsKCV9ncm91cF'
-    '9pZEIJCgdfc2Vhc29u');
+    'b24YCiABKANIA1IGc2Vhc29uiAEBEi0KEGZhdm9yaXRlX2xpc3RfaWQYCyABKANIBFIOZmF2b3'
+    'JpdGVMaXN0SWSIAQFCCAoGX3F1ZXJ5QgwKCl9zZXJpZXNfaWRCCwoJX2dyb3VwX2lkQgkKB19z'
+    'ZWFzb25CEwoRX2Zhdm9yaXRlX2xpc3RfaWQ=');
 
 @$core.Deprecated('Use toggleFavoriteDescriptor instead')
 const ToggleFavorite$json = {
@@ -450,6 +461,80 @@ const ToggleFavorite$json = {
 final $typed_data.Uint8List toggleFavoriteDescriptor = $convert.base64Decode(
     'Cg5Ub2dnbGVGYXZvcml0ZRIdCgpjaGFubmVsX2lkGAEgASgDUgljaGFubmVsSWQSGgoIZmF2b3'
     'JpdGUYAiABKAhSCGZhdm9yaXRl');
+
+@$core.Deprecated('Use favoriteListDescriptor instead')
+const FavoriteList$json = {
+  '1': 'FavoriteList',
+  '2': [
+    {'1': 'id', '3': 1, '4': 1, '5': 3, '10': 'id'},
+    {'1': 'name', '3': 2, '4': 1, '5': 9, '10': 'name'},
+  ],
+};
+
+/// Descriptor for `FavoriteList`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List favoriteListDescriptor = $convert.base64Decode(
+    'CgxGYXZvcml0ZUxpc3QSDgoCaWQYASABKANSAmlkEhIKBG5hbWUYAiABKAlSBG5hbWU=');
+
+@$core.Deprecated('Use favoriteListListDescriptor instead')
+const FavoriteListList$json = {
+  '1': 'FavoriteListList',
+  '2': [
+    {
+      '1': 'lists',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.generated_proto.FavoriteList',
+      '10': 'lists'
+    },
+  ],
+};
+
+/// Descriptor for `FavoriteListList`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List favoriteListListDescriptor = $convert.base64Decode(
+    'ChBGYXZvcml0ZUxpc3RMaXN0EjMKBWxpc3RzGAEgAygLMh0uZ2VuZXJhdGVkX3Byb3RvLkZhdm'
+    '9yaXRlTGlzdFIFbGlzdHM=');
+
+@$core.Deprecated('Use setChannelFavoriteListsDescriptor instead')
+const SetChannelFavoriteLists$json = {
+  '1': 'SetChannelFavoriteLists',
+  '2': [
+    {'1': 'channel_id', '3': 1, '4': 1, '5': 3, '10': 'channelId'},
+    {'1': 'favorite', '3': 2, '4': 1, '5': 8, '10': 'favorite'},
+    {'1': 'list_ids', '3': 3, '4': 3, '5': 3, '10': 'listIds'},
+  ],
+};
+
+/// Descriptor for `SetChannelFavoriteLists`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List setChannelFavoriteListsDescriptor = $convert.base64Decode(
+    'ChdTZXRDaGFubmVsRmF2b3JpdGVMaXN0cxIdCgpjaGFubmVsX2lkGAEgASgDUgljaGFubmVsSW'
+    'QSGgoIZmF2b3JpdGUYAiABKAhSCGZhdm9yaXRlEhkKCGxpc3RfaWRzGAMgAygDUgdsaXN0SWRz');
+
+@$core.Deprecated('Use renameFavoriteListDescriptor instead')
+const RenameFavoriteList$json = {
+  '1': 'RenameFavoriteList',
+  '2': [
+    {'1': 'id', '3': 1, '4': 1, '5': 3, '10': 'id'},
+    {'1': 'name', '3': 2, '4': 1, '5': 9, '10': 'name'},
+  ],
+};
+
+/// Descriptor for `RenameFavoriteList`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List renameFavoriteListDescriptor = $convert.base64Decode(
+    'ChJSZW5hbWVGYXZvcml0ZUxpc3QSDgoCaWQYASABKANSAmlkEhIKBG5hbWUYAiABKAlSBG5hbW'
+    'U=');
+
+@$core.Deprecated('Use idListDescriptor instead')
+const IdList$json = {
+  '1': 'IdList',
+  '2': [
+    {'1': 'ids', '3': 1, '4': 3, '5': 3, '10': 'ids'},
+  ],
+};
+
+/// Descriptor for `IdList`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List idListDescriptor =
+    $convert.base64Decode('CgZJZExpc3QSEAoDaWRzGAEgAygDUgNpZHM=');
 
 @$core.Deprecated('Use idMessageDescriptor instead')
 const IdMessage$json = {
@@ -825,6 +910,33 @@ const FFIResult$json = {
       '9': 0,
       '10': 'expiries'
     },
+    {
+      '1': 'favorite_list',
+      '3': 13,
+      '4': 1,
+      '5': 11,
+      '6': '.generated_proto.FavoriteList',
+      '9': 0,
+      '10': 'favoriteList'
+    },
+    {
+      '1': 'favorite_lists',
+      '3': 14,
+      '4': 1,
+      '5': 11,
+      '6': '.generated_proto.FavoriteListList',
+      '9': 0,
+      '10': 'favoriteLists'
+    },
+    {
+      '1': 'id_list',
+      '3': 15,
+      '4': 1,
+      '5': 11,
+      '6': '.generated_proto.IdList',
+      '9': 0,
+      '10': 'idList'
+    },
   ],
   '8': [
     {'1': 'data'},
@@ -846,4 +958,8 @@ final $typed_data.Uint8List fFIResultDescriptor = $convert.base64Decode(
     'VuZXJhdGVkX3Byb3RvLkdldEVuYWJsZWRTb3VyY2VzTWluaW1hbEgAUhVlbmFibGVkU291cmNl'
     'c01pbmltYWwSPgoLc291cmNlX2xpc3QYCyABKAsyGy5nZW5lcmF0ZWRfcHJvdG8uU291cmNlTG'
     'lzdEgAUgpzb3VyY2VMaXN0EjcKCGV4cGlyaWVzGAwgASgLMhkuZ2VuZXJhdGVkX3Byb3RvLkV4'
-    'cGlyaWVzSABSCGV4cGlyaWVzQgYKBGRhdGFCEAoOX2Vycm9yX21lc3NhZ2U=');
+    'cGlyaWVzSABSCGV4cGlyaWVzEkQKDWZhdm9yaXRlX2xpc3QYDSABKAsyHS5nZW5lcmF0ZWRfcH'
+    'JvdG8uRmF2b3JpdGVMaXN0SABSDGZhdm9yaXRlTGlzdBJKCg5mYXZvcml0ZV9saXN0cxgOIAEo'
+    'CzIhLmdlbmVyYXRlZF9wcm90by5GYXZvcml0ZUxpc3RMaXN0SABSDWZhdm9yaXRlTGlzdHMSMg'
+    'oHaWRfbGlzdBgPIAEoCzIXLmdlbmVyYXRlZF9wcm90by5JZExpc3RIAFIGaWRMaXN0QgYKBGRh'
+    'dGFCEAoOX2Vycm9yX21lc3NhZ2U=');

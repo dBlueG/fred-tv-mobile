@@ -81,6 +81,7 @@ pub struct Filters {
     pub use_keywords: bool,
     pub sort: u8,
     pub season: Option<i64>,
+    pub favorite_list_id: Option<i64>,
 }
 
 #[derive(Clone, PartialEq, Debug, Deserialize, Serialize, Default)]
@@ -102,6 +103,14 @@ pub struct ChannelPreserve {
     pub last_watched: Option<i64>,
     #[serde(default)]
     pub is_group: bool,
+    #[serde(default)]
+    pub list_ids: Vec<i64>,
+}
+
+#[derive(Clone, PartialEq, Debug, Deserialize, Serialize)]
+pub struct FavoriteList {
+    pub id: i64,
+    pub name: String,
 }
 
 #[derive(Clone, PartialEq, Debug, Deserialize, Serialize)]

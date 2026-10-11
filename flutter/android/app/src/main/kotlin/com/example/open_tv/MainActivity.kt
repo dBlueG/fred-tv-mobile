@@ -14,7 +14,7 @@ class MainActivity : FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         flutterEngine.platformViewsController.registry.registerViewFactory(
             "dev.fredol.open_tv/exoplayer",
-            ExoPlayerViewFactory(flutterEngine.dartExecutor.binaryMessenger, ::updatePipParams),
+            ExoPlayerViewFactory(this, flutterEngine.dartExecutor.binaryMessenger, ::updatePipParams),
         )
     }
 

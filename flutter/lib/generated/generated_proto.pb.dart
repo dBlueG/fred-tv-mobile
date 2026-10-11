@@ -611,6 +611,7 @@ class Filters extends $pb.GeneratedMessage {
     $core.bool? useKeywords,
     $core.int? sort,
     $fixnum.Int64? season,
+    $fixnum.Int64? favoriteListId,
   }) {
     final result = create();
     if (query != null) result.query = query;
@@ -623,6 +624,7 @@ class Filters extends $pb.GeneratedMessage {
     if (useKeywords != null) result.useKeywords = useKeywords;
     if (sort != null) result.sort = sort;
     if (season != null) result.season = season;
+    if (favoriteListId != null) result.favoriteListId = favoriteListId;
     return result;
   }
 
@@ -655,6 +657,7 @@ class Filters extends $pb.GeneratedMessage {
     ..aOB(8, _omitFieldNames ? '' : 'useKeywords')
     ..aI(9, _omitFieldNames ? '' : 'sort', fieldType: $pb.PbFieldType.OU3)
     ..aInt64(10, _omitFieldNames ? '' : 'season')
+    ..aInt64(11, _omitFieldNames ? '' : 'favoriteListId')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -752,6 +755,15 @@ class Filters extends $pb.GeneratedMessage {
   $core.bool hasSeason() => $_has(9);
   @$pb.TagNumber(10)
   void clearSeason() => $_clearField(10);
+
+  @$pb.TagNumber(11)
+  $fixnum.Int64 get favoriteListId => $_getI64(10);
+  @$pb.TagNumber(11)
+  set favoriteListId($fixnum.Int64 value) => $_setInt64(10, value);
+  @$pb.TagNumber(11)
+  $core.bool hasFavoriteListId() => $_has(10);
+  @$pb.TagNumber(11)
+  void clearFavoriteListId() => $_clearField(11);
 }
 
 class ToggleFavorite extends $pb.GeneratedMessage {
@@ -819,6 +831,312 @@ class ToggleFavorite extends $pb.GeneratedMessage {
   $core.bool hasFavorite() => $_has(1);
   @$pb.TagNumber(2)
   void clearFavorite() => $_clearField(2);
+}
+
+class FavoriteList extends $pb.GeneratedMessage {
+  factory FavoriteList({
+    $fixnum.Int64? id,
+    $core.String? name,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    if (name != null) result.name = name;
+    return result;
+  }
+
+  FavoriteList._();
+
+  factory FavoriteList.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory FavoriteList.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'FavoriteList',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'generated_proto'),
+      createEmptyInstance: create)
+    ..aInt64(1, _omitFieldNames ? '' : 'id')
+    ..aOS(2, _omitFieldNames ? '' : 'name')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  FavoriteList clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  FavoriteList copyWith(void Function(FavoriteList) updates) =>
+      super.copyWith((message) => updates(message as FavoriteList))
+          as FavoriteList;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static FavoriteList create() => FavoriteList._();
+  @$core.override
+  FavoriteList createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static FavoriteList getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<FavoriteList>(create);
+  static FavoriteList? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get id => $_getI64(0);
+  @$pb.TagNumber(1)
+  set id($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get name => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set name($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasName() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearName() => $_clearField(2);
+}
+
+class FavoriteListList extends $pb.GeneratedMessage {
+  factory FavoriteListList({
+    $core.Iterable<FavoriteList>? lists,
+  }) {
+    final result = create();
+    if (lists != null) result.lists.addAll(lists);
+    return result;
+  }
+
+  FavoriteListList._();
+
+  factory FavoriteListList.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory FavoriteListList.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'FavoriteListList',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'generated_proto'),
+      createEmptyInstance: create)
+    ..pPM<FavoriteList>(1, _omitFieldNames ? '' : 'lists',
+        subBuilder: FavoriteList.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  FavoriteListList clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  FavoriteListList copyWith(void Function(FavoriteListList) updates) =>
+      super.copyWith((message) => updates(message as FavoriteListList))
+          as FavoriteListList;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static FavoriteListList create() => FavoriteListList._();
+  @$core.override
+  FavoriteListList createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static FavoriteListList getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<FavoriteListList>(create);
+  static FavoriteListList? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbList<FavoriteList> get lists => $_getList(0);
+}
+
+class SetChannelFavoriteLists extends $pb.GeneratedMessage {
+  factory SetChannelFavoriteLists({
+    $fixnum.Int64? channelId,
+    $core.bool? favorite,
+    $core.Iterable<$fixnum.Int64>? listIds,
+  }) {
+    final result = create();
+    if (channelId != null) result.channelId = channelId;
+    if (favorite != null) result.favorite = favorite;
+    if (listIds != null) result.listIds.addAll(listIds);
+    return result;
+  }
+
+  SetChannelFavoriteLists._();
+
+  factory SetChannelFavoriteLists.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory SetChannelFavoriteLists.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SetChannelFavoriteLists',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'generated_proto'),
+      createEmptyInstance: create)
+    ..aInt64(1, _omitFieldNames ? '' : 'channelId')
+    ..aOB(2, _omitFieldNames ? '' : 'favorite')
+    ..p<$fixnum.Int64>(3, _omitFieldNames ? '' : 'listIds', $pb.PbFieldType.K6)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SetChannelFavoriteLists clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SetChannelFavoriteLists copyWith(
+          void Function(SetChannelFavoriteLists) updates) =>
+      super.copyWith((message) => updates(message as SetChannelFavoriteLists))
+          as SetChannelFavoriteLists;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static SetChannelFavoriteLists create() => SetChannelFavoriteLists._();
+  @$core.override
+  SetChannelFavoriteLists createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static SetChannelFavoriteLists getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SetChannelFavoriteLists>(create);
+  static SetChannelFavoriteLists? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get channelId => $_getI64(0);
+  @$pb.TagNumber(1)
+  set channelId($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasChannelId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearChannelId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.bool get favorite => $_getBF(1);
+  @$pb.TagNumber(2)
+  set favorite($core.bool value) => $_setBool(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasFavorite() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearFavorite() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $pb.PbList<$fixnum.Int64> get listIds => $_getList(2);
+}
+
+class RenameFavoriteList extends $pb.GeneratedMessage {
+  factory RenameFavoriteList({
+    $fixnum.Int64? id,
+    $core.String? name,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    if (name != null) result.name = name;
+    return result;
+  }
+
+  RenameFavoriteList._();
+
+  factory RenameFavoriteList.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory RenameFavoriteList.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'RenameFavoriteList',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'generated_proto'),
+      createEmptyInstance: create)
+    ..aInt64(1, _omitFieldNames ? '' : 'id')
+    ..aOS(2, _omitFieldNames ? '' : 'name')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RenameFavoriteList clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RenameFavoriteList copyWith(void Function(RenameFavoriteList) updates) =>
+      super.copyWith((message) => updates(message as RenameFavoriteList))
+          as RenameFavoriteList;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static RenameFavoriteList create() => RenameFavoriteList._();
+  @$core.override
+  RenameFavoriteList createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static RenameFavoriteList getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<RenameFavoriteList>(create);
+  static RenameFavoriteList? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get id => $_getI64(0);
+  @$pb.TagNumber(1)
+  set id($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get name => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set name($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasName() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearName() => $_clearField(2);
+}
+
+class IdList extends $pb.GeneratedMessage {
+  factory IdList({
+    $core.Iterable<$fixnum.Int64>? ids,
+  }) {
+    final result = create();
+    if (ids != null) result.ids.addAll(ids);
+    return result;
+  }
+
+  IdList._();
+
+  factory IdList.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory IdList.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'IdList',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'generated_proto'),
+      createEmptyInstance: create)
+    ..p<$fixnum.Int64>(1, _omitFieldNames ? '' : 'ids', $pb.PbFieldType.K6)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  IdList clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  IdList copyWith(void Function(IdList) updates) =>
+      super.copyWith((message) => updates(message as IdList)) as IdList;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static IdList create() => IdList._();
+  @$core.override
+  IdList createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static IdList getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<IdList>(create);
+  static IdList? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbList<$fixnum.Int64> get ids => $_getList(0);
 }
 
 class IdMessage extends $pb.GeneratedMessage {
@@ -1650,6 +1968,9 @@ enum FFIResult_Data {
   enabledSourcesMinimal,
   sourceList,
   expiries,
+  favoriteList,
+  favoriteLists,
+  idList,
   notSet
 }
 
@@ -1666,6 +1987,9 @@ class FFIResult extends $pb.GeneratedMessage {
     GetEnabledSourcesMinimal? enabledSourcesMinimal,
     SourceList? sourceList,
     Expiries? expiries,
+    FavoriteList? favoriteList,
+    FavoriteListList? favoriteLists,
+    IdList? idList,
   }) {
     final result = create();
     if (success != null) result.success = success;
@@ -1680,6 +2004,9 @@ class FFIResult extends $pb.GeneratedMessage {
       result.enabledSourcesMinimal = enabledSourcesMinimal;
     if (sourceList != null) result.sourceList = sourceList;
     if (expiries != null) result.expiries = expiries;
+    if (favoriteList != null) result.favoriteList = favoriteList;
+    if (favoriteLists != null) result.favoriteLists = favoriteLists;
+    if (idList != null) result.idList = idList;
     return result;
   }
 
@@ -1702,6 +2029,9 @@ class FFIResult extends $pb.GeneratedMessage {
     10: FFIResult_Data.enabledSourcesMinimal,
     11: FFIResult_Data.sourceList,
     12: FFIResult_Data.expiries,
+    13: FFIResult_Data.favoriteList,
+    14: FFIResult_Data.favoriteLists,
+    15: FFIResult_Data.idList,
     0: FFIResult_Data.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
@@ -1709,7 +2039,7 @@ class FFIResult extends $pb.GeneratedMessage {
       package:
           const $pb.PackageName(_omitMessageNames ? '' : 'generated_proto'),
       createEmptyInstance: create)
-    ..oo(0, [3, 4, 6, 7, 8, 9, 10, 11, 12])
+    ..oo(0, [3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15])
     ..aOB(1, _omitFieldNames ? '' : 'success')
     ..aOS(2, _omitFieldNames ? '' : 'errorMessage')
     ..aOM<Settings>(3, _omitFieldNames ? '' : 'settings',
@@ -1730,6 +2060,12 @@ class FFIResult extends $pb.GeneratedMessage {
         subBuilder: SourceList.create)
     ..aOM<Expiries>(12, _omitFieldNames ? '' : 'expiries',
         subBuilder: Expiries.create)
+    ..aOM<FavoriteList>(13, _omitFieldNames ? '' : 'favoriteList',
+        subBuilder: FavoriteList.create)
+    ..aOM<FavoriteListList>(14, _omitFieldNames ? '' : 'favoriteLists',
+        subBuilder: FavoriteListList.create)
+    ..aOM<IdList>(15, _omitFieldNames ? '' : 'idList',
+        subBuilder: IdList.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1759,6 +2095,9 @@ class FFIResult extends $pb.GeneratedMessage {
   @$pb.TagNumber(10)
   @$pb.TagNumber(11)
   @$pb.TagNumber(12)
+  @$pb.TagNumber(13)
+  @$pb.TagNumber(14)
+  @$pb.TagNumber(15)
   FFIResult_Data whichData() => _FFIResult_DataByTag[$_whichOneof(0)]!;
   @$pb.TagNumber(3)
   @$pb.TagNumber(4)
@@ -1769,6 +2108,9 @@ class FFIResult extends $pb.GeneratedMessage {
   @$pb.TagNumber(10)
   @$pb.TagNumber(11)
   @$pb.TagNumber(12)
+  @$pb.TagNumber(13)
+  @$pb.TagNumber(14)
+  @$pb.TagNumber(15)
   void clearData() => $_clearField($_whichOneof(0));
 
   @$pb.TagNumber(1)
@@ -1888,6 +2230,39 @@ class FFIResult extends $pb.GeneratedMessage {
   void clearExpiries() => $_clearField(12);
   @$pb.TagNumber(12)
   Expiries ensureExpiries() => $_ensure(10);
+
+  @$pb.TagNumber(13)
+  FavoriteList get favoriteList => $_getN(11);
+  @$pb.TagNumber(13)
+  set favoriteList(FavoriteList value) => $_setField(13, value);
+  @$pb.TagNumber(13)
+  $core.bool hasFavoriteList() => $_has(11);
+  @$pb.TagNumber(13)
+  void clearFavoriteList() => $_clearField(13);
+  @$pb.TagNumber(13)
+  FavoriteList ensureFavoriteList() => $_ensure(11);
+
+  @$pb.TagNumber(14)
+  FavoriteListList get favoriteLists => $_getN(12);
+  @$pb.TagNumber(14)
+  set favoriteLists(FavoriteListList value) => $_setField(14, value);
+  @$pb.TagNumber(14)
+  $core.bool hasFavoriteLists() => $_has(12);
+  @$pb.TagNumber(14)
+  void clearFavoriteLists() => $_clearField(14);
+  @$pb.TagNumber(14)
+  FavoriteListList ensureFavoriteLists() => $_ensure(12);
+
+  @$pb.TagNumber(15)
+  IdList get idList => $_getN(13);
+  @$pb.TagNumber(15)
+  set idList(IdList value) => $_setField(15, value);
+  @$pb.TagNumber(15)
+  $core.bool hasIdList() => $_has(13);
+  @$pb.TagNumber(15)
+  void clearIdList() => $_clearField(15);
+  @$pb.TagNumber(15)
+  IdList ensureIdList() => $_ensure(13);
 }
 
 const $core.bool _omitFieldNames =

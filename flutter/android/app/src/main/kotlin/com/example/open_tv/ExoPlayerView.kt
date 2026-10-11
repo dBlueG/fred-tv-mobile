@@ -1,10 +1,12 @@
 package dev.fredol.open_tv
 
+import android.app.Activity
 import android.app.AlertDialog
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
@@ -13,7 +15,8 @@ import android.util.Rational
 import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
-import android.widget.FrameLayout
+import android.widget.ImageView
+import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.media3.common.C
 import androidx.media3.common.Format
@@ -42,6 +45,7 @@ import io.flutter.plugin.platform.PlatformView
 import java.util.Locale
 
 class ExoPlayerView(
+    activity: Activity,
     context: Context,
     messenger: BinaryMessenger,
     viewId: Int,
@@ -60,7 +64,9 @@ class ExoPlayerView(
     private val handler = Handler(Looper.getMainLooper())
     private val player: ExoPlayer
     private val playerView: PlayerView
-    private val root: FrameLayout
+    private val root: PlayerGestureLayout
+    private val gestures: PlayerGestureController
+    private val hasTouchscreen = context.packageManager.hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN)
     private val appContext = context.applicationContext
     val session: MediaSession
 
@@ -97,9 +103,17 @@ class ExoPlayerView(
             .setSeekForwardIncrementMs(SEEK_INCREMENT_MS)
             .build()
         root = LayoutInflater.from(context)
-            .inflate(R.layout.exo_player_container, null) as FrameLayout
+            .inflate(R.layout.exo_player_container, null) as PlayerGestureLayout
         root.keepScreenOn = true
         playerView = root.findViewById(R.id.player_view)
+        gestures = PlayerGestureController(
+            activity,
+            root.findViewById(R.id.gesture_indicator),
+            root.findViewById<ImageView>(R.id.gesture_indicator_icon),
+            root.findViewById<ProgressBar>(R.id.gesture_indicator_level),
+        )
+        root.listener = gestures
+        root.gesturesEnabled = hasTouchscreen
         if (debug) player.addAnalyticsListener(EventLogger(DIAG_TAG))
         attachPlayer()
         bindControls()
@@ -241,6 +255,7 @@ class ExoPlayerView(
     fun onPipModeChanged(inPip: Boolean) {
         if (inPip) playerView.hideController()
         playerView.useController = !inPip
+        root.gesturesEnabled = hasTouchscreen && !inPip
     }
 
     private fun startPlayback() {
@@ -440,6 +455,7 @@ class ExoPlayerView(
         if (wasActive) active = null
         methodChannel.setMethodCallHandler(null)
         handler.removeCallbacksAndMessages(null)
+        gestures.release()
         session.release()
         if (wasActive) {
             appContext.stopService(Intent(appContext, PlaybackService::class.java))

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:open_tv/native_bridge.dart';
 import 'package:open_tv/bottom_nav.dart';
 import 'package:open_tv/channel_tile.dart';
+import 'package:open_tv/favorite_list_bar.dart';
 import 'package:open_tv/loading.dart';
 import 'package:open_tv/models/channel.dart';
 import 'package:open_tv/models/filters.dart';
@@ -256,6 +257,10 @@ class _HomeState extends State<Home> {
     return KeyEventResult.ignored;
   }
 
+  bool get _isFavoritesView =>
+      widget.home.filters.viewType == ViewType.favorites &&
+      widget.home.node == null;
+
   ViewType getStartingView() {
     if (widget.home.filters.groupId != null) {
       return ViewType.categories;
@@ -406,6 +411,18 @@ class _HomeState extends State<Home> {
                       ),
                     ),
                   ),
+                  if (_isFavoritesView)
+                    SliverToBoxAdapter(
+                      child: FavoriteListBar(
+                        selectedId: widget.home.filters.favoriteListId,
+                        onSelected: (listId) {
+                          setState(() {
+                            widget.home.filters.favoriteListId = listId;
+                          });
+                          load(false);
+                        },
+                      ),
+                    ),
                   SliverPadding(
                     padding: const EdgeInsets.fromLTRB(10, 5, 10, 10),
                     sliver: SliverGrid(
@@ -417,6 +434,9 @@ class _HomeState extends State<Home> {
                           setNode: setNode,
                           autofocus: index == currentlyFocusedChannel,
                           onSelect: () => currentlyFocusedChannel = index,
+                          onFavoriteChanged: _isFavoritesView
+                              ? () => load(false)
+                              : null,
                         );
                       }, childCount: channels.length),
                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(

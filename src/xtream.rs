@@ -102,21 +102,21 @@ fn build_xtream_url(source: &mut Source) -> Result<Url> {
 
 pub async fn get_xtream(mut source: Source, wipe: bool) -> Result<()> {
     let url = build_xtream_url(&mut source)?;
-    let user_agent = get_user_agent_from_source(&source)?;
+    let client = build_client(&source)?;
     let (live, live_cats, vods, vods_cats, series, series_cats) = join!(
-        get_xtream_http_data::<Vec<XtreamStream>>(url.clone(), GET_LIVE_STREAMS, &user_agent),
+        get_xtream_http_data::<Vec<XtreamStream>>(&client, url.clone(), GET_LIVE_STREAMS),
         get_xtream_http_data::<Vec<XtreamCategory>>(
+            &client,
             url.clone(),
-            GET_LIVE_STREAM_CATEGORIES,
-            &user_agent
+            GET_LIVE_STREAM_CATEGORIES
         ),
-        get_xtream_http_data::<Vec<XtreamStream>>(url.clone(), GET_VODS, &user_agent),
-        get_xtream_http_data::<Vec<XtreamCategory>>(url.clone(), GET_VOD_CATEGORIES, &user_agent),
-        get_xtream_http_data::<Vec<XtreamStream>>(url.clone(), GET_SERIES, &user_agent),
+        get_xtream_http_data::<Vec<XtreamStream>>(&client, url.clone(), GET_VODS),
+        get_xtream_http_data::<Vec<XtreamCategory>>(&client, url.clone(), GET_VOD_CATEGORIES),
+        get_xtream_http_data::<Vec<XtreamStream>>(&client, url.clone(), GET_SERIES),
         get_xtream_http_data::<Vec<XtreamCategory>>(
+            &client,
             url.clone(),
-            GET_SERIES_CATEGORIES,
-            &user_agent
+            GET_SERIES_CATEGORIES
         ),
     );
     let mut sql = sql::get_conn()?;
@@ -165,11 +165,16 @@ pub async fn get_xtream(mut source: Source, wipe: bool) -> Result<()> {
     Ok(())
 }
 
-async fn get_xtream_http_data<T>(mut url: Url, action: &str, user_agent: &String) -> Result<T>
+// One client per refresh so the parallel requests share connections.
+fn build_client(source: &Source) -> Result<Client> {
+    let user_agent = get_user_agent_from_source(source)?;
+    Ok(Client::builder().user_agent(user_agent).build()?)
+}
+
+async fn get_xtream_http_data<T>(client: &Client, mut url: Url, action: &str) -> Result<T>
 where
     T: serde::de::DeserializeOwned,
 {
-    let client = Client::builder().user_agent(user_agent).build()?;
     url.query_pairs_mut().append_pair("action", action);
     let data = client.get(url).send().await?.json::<T>().await?;
     Ok(data)
@@ -301,11 +306,10 @@ pub async fn get_episodes(
     }
     let mut source = sql::get_source_from_id(source_id)?;
     let mut url = build_xtream_url(&mut source)?;
-    let user_agent = get_user_agent_from_source(&source)?;
+    let client = build_client(&source)?;
     url.query_pairs_mut()
         .append_pair("series_id", &series_id.to_string());
-    let mut series =
-        get_xtream_http_data::<XtreamSeries>(url, GET_SERIES_INFO, &user_agent).await?;
+    let mut series = get_xtream_http_data::<XtreamSeries>(&client, url, GET_SERIES_INFO).await?;
     let mut episodes: Vec<XtreamEpisode> = series
         .episodes
         .into_values()
@@ -481,8 +485,7 @@ fn episode_to_channel(
 
 async fn get_status(source: &mut Source) -> Result<(i64, XtreamStatus)> {
     let url = build_xtream_url(source)?;
-    let user_agent = get_user_agent_from_source(&source)?;
-    let client = Client::builder().user_agent(user_agent).build()?;
+    let client = build_client(source)?;
     let data = client.get(url).send().await?.json::<XtreamStatus>().await?;
     Ok((source.id.context("no id")?, data))
 }

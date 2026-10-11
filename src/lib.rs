@@ -106,6 +106,16 @@ impl From<crate::generated_proto::Filters> for crate::types::Filters {
             use_keywords: filters.use_keywords,
             sort: filters.sort as u8,
             season: filters.season,
+            favorite_list_id: filters.favorite_list_id,
+        }
+    }
+}
+
+impl From<crate::types::FavoriteList> for crate::generated_proto::FavoriteList {
+    fn from(list: crate::types::FavoriteList) -> Self {
+        crate::generated_proto::FavoriteList {
+            id: list.id,
+            name: list.name,
         }
     }
 }
@@ -230,6 +240,112 @@ pub extern "C" fn favorite(task_id: u64, callback: FfiCallback, ptr: *const u8, 
         len,
         |favorite_msg: ToggleFavorite| {
             sql::favorite_channel(favorite_msg.channel_id, favorite_msg.favorite)
+        },
+    )
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn get_favorite_lists(task_id: u64, callback: FfiCallback) {
+    c::queue_blocking(task_id, callback, || {
+        Ok(generated_proto::ffi_result::Data::FavoriteLists(
+            generated_proto::FavoriteListList {
+                lists: sql::get_favorite_lists()?
+                    .into_iter()
+                    .map(Into::into)
+                    .collect(),
+            },
+        ))
+    })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn create_favorite_list(
+    task_id: u64,
+    callback: FfiCallback,
+    ptr: *const u8,
+    len: usize,
+) {
+    c::queue_blocking_with_message(
+        task_id,
+        callback,
+        ptr,
+        len,
+        |name: generated_proto::StrMessage| {
+            Ok(generated_proto::ffi_result::Data::FavoriteList(
+                sql::create_favorite_list(&name.value)?.into(),
+            ))
+        },
+    )
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn rename_favorite_list(
+    task_id: u64,
+    callback: FfiCallback,
+    ptr: *const u8,
+    len: usize,
+) {
+    c::queue_blocking_with_message(
+        task_id,
+        callback,
+        ptr,
+        len,
+        |msg: generated_proto::RenameFavoriteList| sql::rename_favorite_list(msg.id, &msg.name),
+    )
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn delete_favorite_list(
+    task_id: u64,
+    callback: FfiCallback,
+    ptr: *const u8,
+    len: usize,
+) {
+    c::queue_blocking_with_message(
+        task_id,
+        callback,
+        ptr,
+        len,
+        |id: generated_proto::IdMessage| sql::delete_favorite_list(id.value),
+    )
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn get_channel_favorite_lists(
+    task_id: u64,
+    callback: FfiCallback,
+    ptr: *const u8,
+    len: usize,
+) {
+    c::queue_blocking_with_message(
+        task_id,
+        callback,
+        ptr,
+        len,
+        |id: generated_proto::IdMessage| {
+            Ok(generated_proto::ffi_result::Data::IdList(
+                generated_proto::IdList {
+                    ids: sql::get_channel_favorite_lists(id.value)?,
+                },
+            ))
+        },
+    )
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn set_channel_favorite_lists(
+    task_id: u64,
+    callback: FfiCallback,
+    ptr: *const u8,
+    len: usize,
+) {
+    c::queue_blocking_with_message(
+        task_id,
+        callback,
+        ptr,
+        len,
+        |msg: generated_proto::SetChannelFavoriteLists| {
+            sql::set_channel_favorite_lists(msg.channel_id, msg.favorite, &msg.list_ids)
         },
     )
 }

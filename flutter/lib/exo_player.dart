@@ -131,7 +131,10 @@ class _ExoPlayerScreenState extends State<ExoPlayerScreen> {
       surfaceFactory: (context, controller) {
         return AndroidViewSurface(
           controller: controller as AndroidViewController,
-          gestureRecognizers: const <Factory<OneSequenceGestureRecognizer>>{},
+          // Claim every gesture so drags (volume/brightness) reach the native view.
+          gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+            Factory<OneSequenceGestureRecognizer>(EagerGestureRecognizer.new),
+          },
           hitTestBehavior: PlatformViewHitTestBehavior.opaque,
         );
       },

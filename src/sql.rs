@@ -5,7 +5,7 @@ use std::vec;
 use std::{collections::HashMap, sync::LazyLock};
 
 use crate::sort_type;
-use crate::types::{ChannelPreserve, Season};
+use crate::types::{ChannelPreserve, FavoriteList, Season};
 use crate::{
     media_type,
     types::{Channel, ChannelHttpHeaders, Filters, Source},
@@ -37,7 +37,11 @@ pub fn get_settings_conn() -> Result<PooledConnection<SqliteConnectionManager>> 
 
 fn create_connection_pool(db_name: &str) -> Pool<SqliteConnectionManager> {
     let manager = SqliteConnectionManager::file(get_and_create_db_path(db_name))
-        .with_init(|c| c.pragma_update_and_check(None, "journal_mode", "WAL", |_| Ok(())));
+        .with_init(|c| {
+            c.pragma_update_and_check(None, "journal_mode", "WAL", |_| Ok(()))?;
+            // Safe with WAL: a crash can lose the last commit but never corrupts the db.
+            c.pragma_update(None, "synchronous", "NORMAL")
+        });
     r2d2::Pool::builder().max_size(20).build(manager).unwrap()
 }
 
@@ -169,6 +173,33 @@ DROP TABLE IF EXISTS settings;
 
 ANALYZE;
 "#,
+    ),
+    M::up(
+        r#"
+CREATE TABLE "favorite_lists" (
+  "id"   INTEGER PRIMARY KEY,
+  "name" varchar(100) NOT NULL COLLATE NOCASE
+);
+
+CREATE TABLE "favorite_list_channels" (
+  "list_id"    integer NOT NULL,
+  "channel_id" integer NOT NULL,
+  PRIMARY KEY (list_id, channel_id)
+);
+
+CREATE UNIQUE INDEX index_favorite_lists_name ON favorite_lists(name);
+CREATE INDEX index_favorite_list_channels_channel_id ON favorite_list_channels(channel_id);
+
+ANALYZE;
+"#,
+    ),
+    // No query filters on these; they only slowed down imports.
+    M::up(
+        r#"
+DROP INDEX IF EXISTS index_channels_stream_id;
+DROP INDEX IF EXISTS index_channels_tv_archive;
+DROP INDEX IF EXISTS index_channels_episode_num;
+"#,
     )]);
     migrations.to_latest(&mut sql)?;
     Ok(())
@@ -209,7 +240,7 @@ pub fn create_or_find_source_by_name(tx: &Transaction, source: &Source) -> Resul
 }
 
 pub fn insert_season(tx: &Transaction, season: Season) -> Result<i64> {
-    tx.execute(
+    tx.prepare_cached(
         r#"
         INSERT INTO seasons (name, image, series_id, season_number, source_id)
         VALUES (?, ?, ?, ?, ?)
@@ -218,29 +249,33 @@ pub fn insert_season(tx: &Transaction, season: Season) -> Result<i64> {
           image = excluded.image,
           name = excluded.name
         "#,
-        params![
+    )?
+    .execute(params![
             season.name,
             season.image,
             season.series_id,
             season.season_number,
             season.source_id,
-        ],
-    )?;
-    Ok(tx.query_row(
-        r#"
+        ])?;
+    Ok(tx
+        .prepare_cached(
+            r#"
         SELECT id
         FROM seasons
         WHERE series_id = ?
         AND season_number = ?
         AND source_id = ?
       "#,
-        params![season.series_id, season.season_number, season.source_id],
-        |r| r.get(0),
-    )?)
+        )?
+        .query_row(
+            params![season.series_id, season.season_number, season.source_id],
+            |r| r.get(0),
+        )?)
 }
 
+// Called once per channel during imports, so statements are cached rather than re-parsed.
 pub fn insert_channel(tx: &Transaction, channel: Channel) -> Result<()> {
-    tx.execute(
+    tx.prepare_cached(
         r#"
 INSERT INTO channels (name, group_id, image, url, source_id, media_type, series_id, favorite, stream_id, tv_archive, season_id, episode_num)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -254,7 +289,8 @@ DO UPDATE SET
     tv_archive = excluded.tv_archive,
     season_id = excluded.season_id;
 "#,
-        params![
+    )?
+    .execute(params![
             channel.name,
             channel.group_id,
             channel.image,
@@ -267,25 +303,24 @@ DO UPDATE SET
             channel.tv_archive,
             channel.season_id,
             channel.episode_num
-        ],
-    )?;
+        ])?;
     Ok(())
 }
 
 pub fn insert_channel_headers(tx: &Transaction, headers: ChannelHttpHeaders) -> Result<()> {
-    tx.execute(
+    tx.prepare_cached(
         r#"
 INSERT OR IGNORE INTO channel_http_headers (channel_id, referrer, user_agent, http_origin, ignore_ssl)
 VALUES (?, ?, ?, ?, ?);
 "#,
-        params![
+    )?
+    .execute(params![
             headers.channel_id,
             headers.referrer,
             headers.user_agent,
             headers.http_origin,
             headers.ignore_ssl
-        ],
-    )?;
+        ])?;
     Ok(())
 }
 
@@ -296,19 +331,18 @@ fn get_or_insert_group(
     source_id: &i64,
     media_type: u8,
 ) -> Result<i64> {
-    let rows_changed = tx.execute(
-        r#"
+    let rows_changed = tx
+        .prepare_cached(
+            r#"
         INSERT OR IGNORE INTO groups (name, image, source_id, media_type)
         VALUES (?, ?, ?, ?);
         "#,
-        params![group, &image, source_id, media_type],
-    )?;
+        )?
+        .execute(params![group, &image, source_id, media_type])?;
     if rows_changed == 0 {
-        return Ok(tx.query_row(
-            "SELECT id FROM groups WHERE name = ? and source_id = ?",
-            params![group, source_id],
-            |row| row.get::<_, i64>("id"),
-        )?);
+        return Ok(tx
+            .prepare_cached("SELECT id FROM groups WHERE name = ? and source_id = ?")?
+            .query_row(params![group, source_id], |row| row.get::<_, i64>("id"))?);
     }
     Ok(tx.last_insert_rowid())
 }
@@ -430,8 +464,19 @@ pub fn search(filters: Filters) -> Result<Vec<Channel>> {
         generate_placeholders(filters.source_ids.len()),
     );
     let mut baked_params = 2;
-    if filters.view_type == view_type::FAVORITES && filters.series_id.is_none() {
-        sql_query += "\nAND favorite = 1";
+    let favorite_list_id = match filters.view_type == view_type::FAVORITES
+        && filters.series_id.is_none()
+    {
+        true => {
+            sql_query += "\nAND favorite = 1";
+            filters.favorite_list_id
+        }
+        false => None,
+    };
+    if favorite_list_id.is_some() {
+        sql_query +=
+            "\nAND id IN (SELECT channel_id FROM favorite_list_channels WHERE list_id = ?)";
+        baked_params += 1;
     }
 
     if filters.series_id.is_some() {
@@ -464,6 +509,9 @@ pub fn search(filters: Filters) -> Result<Vec<Channel>> {
     params.extend(to_to_sql(&keywords));
     params.extend(to_to_sql(&media_types));
     params.extend(to_to_sql(&filters.source_ids));
+    if let Some(ref list_id) = favorite_list_id {
+        params.push(list_id);
+    }
     if let Some(ref series_id) = filters.series_id {
         params.push(series_id);
     } else if let Some(ref group) = filters.group_id {
@@ -667,12 +715,13 @@ fn row_to_channel(row: &Row) -> std::result::Result<Channel, rusqlite::Error> {
 }
 
 pub fn delete_channels_by_source(tx: &Transaction, source_id: i64) -> Result<()> {
+    delete_favorite_list_entries_by_source(tx, source_id)?;
     tx.execute(
         r#"
         DELETE FROM channels
         WHERE source_id = ?
     "#,
-        params![source_id.to_string()],
+        params![source_id],
     )?;
     Ok(())
 }
@@ -699,8 +748,25 @@ pub fn delete_groups_by_source(tx: &Transaction, source_id: i64) -> Result<()> {
     Ok(())
 }
 
+// Foreign keys aren't enforced, so list entries must be removed by hand
+// before a source's channels are deleted.
+fn delete_favorite_list_entries_by_source(
+    conn: &rusqlite::Connection,
+    source_id: i64,
+) -> Result<()> {
+    conn.execute(
+        r#"
+        DELETE FROM favorite_list_channels
+        WHERE channel_id IN (SELECT id FROM channels WHERE source_id = ?)
+    "#,
+        params![source_id],
+    )?;
+    Ok(())
+}
+
 pub fn delete_source(id: i64) -> Result<()> {
     let sql = get_conn()?;
+    delete_favorite_list_entries_by_source(&sql, id)?;
     sql.execute(
         r#"
         DELETE FROM channels
@@ -753,8 +819,9 @@ pub fn source_name_exists(name: &str) -> Result<bool> {
 }
 
 pub fn favorite_channel(channel_id: i64, favorite: bool) -> Result<()> {
-    let sql = get_conn()?;
-    sql.execute(
+    let mut sql = get_conn()?;
+    let tx = sql.transaction()?;
+    tx.execute(
         r#"
         UPDATE channels
         SET favorite = ?1
@@ -762,6 +829,133 @@ pub fn favorite_channel(channel_id: i64, favorite: bool) -> Result<()> {
     "#,
         params![favorite, channel_id],
     )?;
+    if !favorite {
+        tx.execute(
+            "DELETE FROM favorite_list_channels WHERE channel_id = ?",
+            params![channel_id],
+        )?;
+    }
+    tx.commit()?;
+    Ok(())
+}
+
+// Sets whether a channel is a favorite and replaces the lists it belongs to.
+// A channel that isn't a favorite can't be in any list.
+pub fn set_channel_favorite_lists(
+    channel_id: i64,
+    favorite: bool,
+    list_ids: &[i64],
+) -> Result<()> {
+    let mut sql = get_conn()?;
+    let tx = sql.transaction()?;
+    tx.execute(
+        r#"
+        UPDATE channels
+        SET favorite = ?1
+        WHERE id = ?2
+    "#,
+        params![favorite, channel_id],
+    )?;
+    tx.execute(
+        "DELETE FROM favorite_list_channels WHERE channel_id = ?",
+        params![channel_id],
+    )?;
+    if favorite {
+        for list_id in list_ids {
+            tx.execute(
+                r#"
+                INSERT OR IGNORE INTO favorite_list_channels (list_id, channel_id)
+                SELECT id, ?2 FROM favorite_lists WHERE id = ?1
+            "#,
+                params![list_id, channel_id],
+            )?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
+}
+
+pub fn get_channel_favorite_lists(channel_id: i64) -> Result<Vec<i64>> {
+    let sql = get_conn()?;
+    let ids = sql
+        .prepare(
+            "SELECT list_id FROM favorite_list_channels WHERE channel_id = ? ORDER BY list_id",
+        )?
+        .query_map(params![channel_id], |row| row.get(0))?
+        .collect::<Result<Vec<i64>, _>>()?;
+    Ok(ids)
+}
+
+pub fn get_favorite_lists() -> Result<Vec<FavoriteList>> {
+    let sql = get_conn()?;
+    let lists = sql
+        .prepare("SELECT id, name FROM favorite_lists ORDER BY id")?
+        .query_map([], |row| {
+            Ok(FavoriteList {
+                id: row.get("id")?,
+                name: row.get("name")?,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(lists)
+}
+
+fn validate_favorite_list_name(
+    sql: &rusqlite::Connection,
+    name: &str,
+    id: Option<i64>,
+) -> Result<String> {
+    let name = name.trim();
+    if name.is_empty() {
+        return Err(anyhow!("List name can't be empty"));
+    }
+    let taken = sql
+        .query_row(
+            "SELECT 1 FROM favorite_lists WHERE name = ?1 AND id IS NOT ?2",
+            params![name, id],
+            |row| row.get::<_, u8>(0),
+        )
+        .optional()?
+        .is_some();
+    if taken {
+        return Err(anyhow!("A list named \"{name}\" already exists"));
+    }
+    Ok(name.to_string())
+}
+
+pub fn create_favorite_list(name: &str) -> Result<FavoriteList> {
+    let sql = get_conn()?;
+    let name = validate_favorite_list_name(&sql, name, None)?;
+    sql.execute("INSERT INTO favorite_lists (name) VALUES (?)", params![name])?;
+    Ok(FavoriteList {
+        id: sql.last_insert_rowid(),
+        name,
+    })
+}
+
+pub fn rename_favorite_list(id: i64, name: &str) -> Result<()> {
+    let sql = get_conn()?;
+    let name = validate_favorite_list_name(&sql, name, Some(id))?;
+    let count = sql.execute(
+        "UPDATE favorite_lists SET name = ?1 WHERE id = ?2",
+        params![name, id],
+    )?;
+    if count != 1 {
+        return Err(anyhow!("List not found"));
+    }
+    Ok(())
+}
+
+// Channels in the list stay in the main favorites.
+pub fn delete_favorite_list(id: i64) -> Result<()> {
+    let mut sql = get_conn()?;
+    let tx = sql.transaction()?;
+    tx.execute(
+        "DELETE FROM favorite_list_channels WHERE list_id = ?",
+        params![id],
+    )?;
+    tx.execute("DELETE FROM favorite_lists WHERE id = ?", params![id])?;
+    tx.commit()?;
     Ok(())
 }
 
@@ -864,7 +1058,9 @@ pub fn get_preserve(tx: &Transaction, source_id: i64) -> Result<Vec<ChannelPrese
     let channels: Vec<ChannelPreserve> = tx
         .prepare(
             r#"
-              SELECT name, favorite, last_watched
+              SELECT name, favorite, last_watched,
+                (SELECT group_concat(list_id) FROM favorite_list_channels
+                 WHERE channel_id = channels.id) AS list_ids
               FROM channels
               WHERE (favorite = 1 OR last_watched IS NOT NULL)
               AND series_id IS NULL
@@ -884,6 +1080,10 @@ fn row_to_channel_preserve(row: &Row) -> Result<ChannelPreserve, rusqlite::Error
         favorite: row.get("favorite")?,
         last_watched: row.get("last_watched")?,
         is_group: false,
+        list_ids: row
+            .get::<_, Option<String>>("list_ids")?
+            .map(|ids| ids.split(',').filter_map(|id| id.parse().ok()).collect())
+            .unwrap_or_default(),
     })
 }
 
@@ -903,22 +1103,36 @@ pub fn restore_preserve(
                 params![item.name, source_id],
             )?;
         } else {
-            tx.execute(
+            tx.prepare_cached(
                 r#"
                   UPDATE channels
                   SET favorite = ?, last_watched = ?
                   WHERE name = ?
                   AND source_id = ?
                 "#,
-                params![item.favorite, item.last_watched, item.name, source_id],
-            )?;
+            )?
+            .execute(params![item.favorite, item.last_watched, item.name, source_id])?;
+            for list_id in &item.list_ids {
+                tx.prepare_cached(
+                    r#"
+                      INSERT OR IGNORE INTO favorite_list_channels (list_id, channel_id)
+                      SELECT ?, id
+                      FROM channels
+                      WHERE name = ?
+                      AND source_id = ?
+                      AND series_id IS NULL
+                    "#,
+                )?
+                .execute(params![list_id, item.name, source_id])?;
+            }
         }
     }
     Ok(())
 }
 
 pub fn analyze(tx: &Transaction) -> Result<()> {
-    tx.execute("ANALYZE;", params![])?;
+    // Approximate stats are enough for the planner and avoid scanning every index.
+    tx.execute_batch("PRAGMA analysis_limit = 1000; ANALYZE;")?;
     Ok(())
 }
 
@@ -1037,4 +1251,157 @@ pub fn get_sources_by_type(source_type: u8) -> Result<Vec<Source>> {
         .filter_map(Result::ok)
         .collect();
     Ok(sources)
+}
+
+#[cfg(test)]
+mod test_favorite_lists {
+    use super::*;
+    use crate::types::Channel;
+
+    fn channel(name: &str, source_id: i64) -> Channel {
+        Channel {
+            id: None,
+            name: name.to_string(),
+            url: Some(format!("http://example.local/{name}")),
+            group: None,
+            image: None,
+            media_type: media_type::LIVESTREAM,
+            source_id: Some(source_id),
+            series_id: None,
+            group_id: None,
+            favorite: false,
+            stream_id: None,
+            tv_archive: None,
+            season_id: None,
+            episode_num: None,
+        }
+    }
+
+    fn favorites(source_id: i64, list_id: Option<i64>) -> Vec<String> {
+        search(Filters {
+            query: None,
+            source_ids: vec![source_id],
+            media_types: Some(vec![media_type::LIVESTREAM]),
+            view_type: view_type::FAVORITES,
+            page: 1,
+            series_id: None,
+            group_id: None,
+            use_keywords: false,
+            sort: sort_type::ALPHABETICAL_ASC,
+            season: None,
+            favorite_list_id: list_id,
+        })
+        .unwrap()
+        .into_iter()
+        .map(|c| c.name)
+        .collect()
+    }
+
+    fn channel_id(name: &str) -> i64 {
+        get_conn()
+            .unwrap()
+            .query_row("SELECT id FROM channels WHERE name = ?", [name], |r| r.get(0))
+            .unwrap()
+    }
+
+    fn refresh(source_id: i64, names: &[&str]) {
+        let mut sql = get_conn().unwrap();
+        let tx = sql.transaction().unwrap();
+        let preserve = get_preserve(&tx, source_id).unwrap();
+        wipe(&tx, source_id).unwrap();
+        for name in names {
+            insert_channel(&tx, channel(name, source_id)).unwrap();
+        }
+        restore_preserve(&tx, source_id, preserve).unwrap();
+        tx.commit().unwrap();
+    }
+
+    // One test, because the connection pool and DB path are process-wide.
+    #[test]
+    fn favorite_lists_flow() {
+        let dir = std::env::temp_dir().join(format!("fred-tv-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        DB_PATH_OVERRIDE.set(dir.to_string_lossy().to_string()).unwrap();
+        apply_migrations().unwrap();
+
+        let source_id = {
+            let mut sql = get_conn().unwrap();
+            let tx = sql.transaction().unwrap();
+            let id = create_or_find_source_by_name(
+                &tx,
+                &crate::types::Source {
+                    id: None,
+                    name: "test".to_string(),
+                    url: None,
+                    url_origin: None,
+                    username: None,
+                    password: None,
+                    source_type: crate::source_type::M3U,
+                    enabled: true,
+                    user_agent: None,
+                    stream_user_agent: None,
+                    last_updated: None,
+                },
+            )
+            .unwrap();
+            tx.commit().unwrap();
+            id
+        };
+        refresh(source_id, &["BBC News", "ESPN", "CNN"]);
+
+        // Creating and validating lists
+        let news = create_favorite_list(" News ").unwrap();
+        assert_eq!(news.name, "News");
+        let sports = create_favorite_list("Sports").unwrap();
+        assert!(create_favorite_list("news").is_err());
+        assert!(create_favorite_list("   ").is_err());
+
+        // Adding to lists makes a channel a favorite
+        set_channel_favorite_lists(channel_id("BBC News"), true, &[news.id]).unwrap();
+        set_channel_favorite_lists(channel_id("CNN"), true, &[news.id, sports.id]).unwrap();
+        favorite_channel(channel_id("ESPN"), true).unwrap();
+        assert_eq!(favorites(source_id, None), ["BBC News", "CNN", "ESPN"]);
+        assert_eq!(favorites(source_id, Some(news.id)), ["BBC News", "CNN"]);
+        assert_eq!(favorites(source_id, Some(sports.id)), ["CNN"]);
+        assert_eq!(
+            get_channel_favorite_lists(channel_id("CNN")).unwrap(),
+            [news.id, sports.id]
+        );
+
+        // Favoriting without lists keeps existing list entries
+        favorite_channel(channel_id("CNN"), true).unwrap();
+        assert_eq!(favorites(source_id, Some(sports.id)), ["CNN"]);
+
+        // Lists survive a source refresh, which re-creates the channels
+        refresh(source_id, &["BBC News", "ESPN", "CNN", "Bloomberg"]);
+        assert_eq!(favorites(source_id, None), ["BBC News", "CNN", "ESPN"]);
+        assert_eq!(favorites(source_id, Some(news.id)), ["BBC News", "CNN"]);
+
+        // Renaming
+        rename_favorite_list(sports.id, "Sport").unwrap();
+        assert!(rename_favorite_list(sports.id, "NEWS").is_err());
+        assert_eq!(
+            get_favorite_lists().unwrap().iter().map(|l| l.name.as_str()).collect::<Vec<_>>(),
+            ["News", "Sport"]
+        );
+
+        // Removing a favorite removes it from every list
+        favorite_channel(channel_id("CNN"), false).unwrap();
+        assert_eq!(favorites(source_id, Some(news.id)), ["BBC News"]);
+        assert!(get_channel_favorite_lists(channel_id("CNN")).unwrap().is_empty());
+
+        // Deleting a list keeps its channels in the main favorites
+        delete_favorite_list(news.id).unwrap();
+        assert_eq!(favorites(source_id, None), ["BBC News", "ESPN"]);
+        assert!(get_channel_favorite_lists(channel_id("BBC News")).unwrap().is_empty());
+
+        // Deleting a source removes its list entries
+        set_channel_favorite_lists(channel_id("ESPN"), true, &[sports.id]).unwrap();
+        delete_source(source_id).unwrap();
+        let entries: i64 = get_conn()
+            .unwrap()
+            .query_row("SELECT count(*) FROM favorite_list_channels", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(entries, 0);
+    }
 }

@@ -9,6 +9,7 @@ import 'package:protobuf/protobuf.dart' as $pb;
 import 'generated/generated_proto.pb.dart' as pb;
 import 'generated/bindings.dart' as ffi;
 import 'package:open_tv/models/channel.dart';
+import 'package:open_tv/models/favorite_list.dart';
 import 'package:open_tv/models/source.dart';
 import 'package:open_tv/models/filters.dart';
 import 'package:open_tv/models/settings.dart';
@@ -180,6 +181,74 @@ class NativeBridge {
       pb.ToggleFavorite(channelId: Int64(channelId), favorite: isFavorite),
       (id, ptr, len, cb) {
         _bindings.favorite(id, cb, ptr, len);
+      },
+    );
+  }
+
+  Future<List<FavoriteList>> getFavoriteLists() async {
+    final result = await _executeAsync((id, cb) {
+      _bindings.get_favorite_lists(id, cb);
+    });
+    return result.favoriteLists.lists.map((l) => l.toDomain()).toList();
+  }
+
+  Future<FavoriteList> createFavoriteList(String name) async {
+    final result = await _executeWithMsg(pb.StrMessage(value: name), (
+      id,
+      ptr,
+      len,
+      cb,
+    ) {
+      _bindings.create_favorite_list(id, cb, ptr, len);
+    });
+    return result.favoriteList.toDomain();
+  }
+
+  Future<void> renameFavoriteList(int listId, String name) async {
+    await _executeWithMsg(
+      pb.RenameFavoriteList(id: Int64(listId), name: name),
+      (id, ptr, len, cb) {
+        _bindings.rename_favorite_list(id, cb, ptr, len);
+      },
+    );
+  }
+
+  Future<void> deleteFavoriteList(int listId) async {
+    await _executeWithMsg(pb.IdMessage(value: Int64(listId)), (
+      id,
+      ptr,
+      len,
+      cb,
+    ) {
+      _bindings.delete_favorite_list(id, cb, ptr, len);
+    });
+  }
+
+  Future<List<int>> getChannelFavoriteLists(int channelId) async {
+    final result = await _executeWithMsg(pb.IdMessage(value: Int64(channelId)), (
+      id,
+      ptr,
+      len,
+      cb,
+    ) {
+      _bindings.get_channel_favorite_lists(id, cb, ptr, len);
+    });
+    return result.idList.ids.map((i) => i.toInt()).toList();
+  }
+
+  Future<void> setChannelFavoriteLists(
+    int channelId,
+    bool favorite,
+    List<int> listIds,
+  ) async {
+    await _executeWithMsg(
+      pb.SetChannelFavoriteLists(
+        channelId: Int64(channelId),
+        favorite: favorite,
+        listIds: listIds.map(Int64.new),
+      ),
+      (id, ptr, len, cb) {
+        _bindings.set_channel_favorite_lists(id, cb, ptr, len);
       },
     );
   }

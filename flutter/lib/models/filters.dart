@@ -11,6 +11,7 @@ class Filters {
   int? seriesId;
   int? seasonId;
   int? groupId;
+  int? favoriteListId;
   bool useKeywords;
   SortType? sort;
 
@@ -23,6 +24,7 @@ class Filters {
     this.seriesId,
     this.seasonId,
     this.groupId,
+    this.favoriteListId,
     this.useKeywords = false,
     this.sort,
   });

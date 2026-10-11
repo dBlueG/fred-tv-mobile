@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:open_tv/memory.dart';
 import 'package:open_tv/models/channel.dart';
 import 'package:open_tv/error.dart';
+import 'package:open_tv/favorite_lists_dialog.dart';
 import 'package:open_tv/models/media_type.dart';
 import 'package:open_tv/models/node.dart';
 import 'package:open_tv/models/node_type.dart';
@@ -20,6 +21,7 @@ class ChannelTile extends StatefulWidget {
   final Function(Node node) setNode;
   final VoidCallback? onFocusNavbar;
   final VoidCallback onSelect;
+  final VoidCallback? onFavoriteChanged;
   final bool autofocus;
   const ChannelTile({
     super.key,
@@ -28,6 +30,7 @@ class ChannelTile extends StatefulWidget {
     required this.parentContext,
     required this.onSelect,
     this.onFocusNavbar,
+    this.onFavoriteChanged,
     this.autofocus = false,
   });
 
@@ -150,22 +153,59 @@ class _ChannelTileState extends State<ChannelTile> {
     super.dispose();
   }
 
+  // Toggles the favorite directly while no lists exist, otherwise lets the
+  // user choose which lists the channel belongs to.
   Future<void> favorite() async {
     if (widget.channel.mediaType == MediaType.group) return;
     await Error.tryAsyncNoLoading(() async {
-      final applied = await TaskService.instance.favorite(
-        widget.channel.id!,
-        !widget.channel.favorite,
-      );
-      if (!applied || !mounted) return;
+      final channelId = widget.channel.id!;
+      final wasFavorite = widget.channel.favorite;
+      final lists = await NativeBridge.instance.getFavoriteLists();
+      final FavoriteChoice choice;
+      if (lists.isEmpty) {
+        choice = FavoriteChoice(favorite: !wasFavorite);
+        if (!await TaskService.instance.favorite(channelId, choice.favorite)) {
+          return;
+        }
+      } else {
+        final selected = await NativeBridge.instance.getChannelFavoriteLists(
+          channelId,
+        );
+        if (!mounted) return;
+        final picked = await showDialog<FavoriteChoice>(
+          context: context,
+          builder: (_) => FavoriteListsDialog(
+            channelName: widget.channel.name,
+            isFavorite: wasFavorite,
+            lists: lists,
+            selected: selected.toSet(),
+          ),
+        );
+        if (picked == null) return;
+        choice = picked;
+        final applied = await TaskService.instance.setChannelFavoriteLists(
+          channelId,
+          choice.favorite,
+          choice.listIds,
+        );
+        if (!applied) return;
+      }
+      if (!mounted) return;
       setState(() {
-        widget.channel.favorite = !widget.channel.favorite;
+        widget.channel.favorite = choice.favorite;
       });
+      widget.onFavoriteChanged?.call();
       Error.showSnackBar(
-        const SnackBar(
+        SnackBar(
           persist: false,
-          content: Text("Added to favorites"),
-          duration: Duration(milliseconds: 500),
+          content: Text(
+            !choice.favorite
+                ? "Removed from favorites"
+                : wasFavorite
+                ? "Favorite lists updated"
+                : "Added to favorites",
+          ),
+          duration: const Duration(milliseconds: 800),
         ),
       );
     });

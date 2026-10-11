@@ -1,6 +1,7 @@
 import 'package:fixnum/fixnum.dart';
 import 'package:open_tv/generated/generated_proto.pb.dart' as pb;
 import 'package:open_tv/models/channel.dart';
+import 'package:open_tv/models/favorite_list.dart';
 import 'package:open_tv/models/source.dart';
 import 'package:open_tv/models/filters.dart';
 import 'package:open_tv/models/settings.dart';
@@ -63,6 +64,7 @@ extension FiltersDomainExtension on Filters {
     seriesId: seriesId != null ? Int64(seriesId!) : null,
     season: seasonId != null ? Int64(seasonId!) : null,
     groupId: groupId != null ? Int64(groupId!) : null,
+    favoriteListId: favoriteListId != null ? Int64(favoriteListId!) : null,
     useKeywords: useKeywords,
     sort: sort?.index ?? SortType.provider.index,
   );
@@ -105,4 +107,8 @@ extension ChannelHttpHeadersProtoExtension on pb.ChannelHttpHeaders {
     httpOrigin: hasHttpOrigin() ? httpOrigin : null,
     ignoreSSL: hasIgnoreSsl() ? ignoreSsl.toString() : null,
   );
+}
+
+extension FavoriteListProtoExtension on pb.FavoriteList {
+  FavoriteList toDomain() => FavoriteList(id: id.toInt(), name: name);
 }
