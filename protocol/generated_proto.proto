@@ -51,6 +51,9 @@ message Settings {
   optional uint32 seek_seconds = 12;
   optional bool picture_in_picture = 13;
   optional bool keep_audio_after_pip = 14;
+  optional bool show_continue_watching = 15;
+  optional bool autoplay_next_episode = 16;
+  optional uint32 autoplay_countdown_seconds = 17;
 }
 
 enum MediaType {
@@ -119,6 +122,18 @@ message IdMessage {
 message MoviePosition {
   int64 channel_id = 1;
   int64 position = 2;
+  optional int64 duration = 3;
+}
+
+message ContinueWatchingItem {
+  Channel channel = 1;
+  int64 position = 2;
+  optional int64 duration = 3;
+  optional string series_name = 4;
+}
+
+message ContinueWatchingList {
+  repeated ContinueWatchingItem items = 1;
 }
 
 message StrMessage {
@@ -190,6 +205,9 @@ message FFIResult {
     FavoriteList favorite_list = 13;
     FavoriteListList favorite_lists = 14;
     IdList id_list = 15;
+    StrMessage str_message = 16;
+    ContinueWatchingList continue_watching = 17;
+    Channel channel = 18;
   }
 }
 

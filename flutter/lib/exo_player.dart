@@ -33,6 +33,9 @@ class _ExoPlayerScreenState extends State<ExoPlayerScreen> {
   static const _viewType = "dev.fredol.open_tv/exoplayer";
 
   MethodChannel? _channel;
+  // The item playing now; changes when switching channels or episodes.
+  late Channel _current = widget.channel;
+  Channel? _nextEpisode;
   bool _exiting = false;
   bool _ready = false;
   Map<String, dynamic> _creationParams = const {};
@@ -83,6 +86,9 @@ class _ExoPlayerScreenState extends State<ExoPlayerScreen> {
         "seekSeconds": settings.seekSeconds,
         "pictureInPicture": settings.pictureInPicture,
         "keepAudioAfterPip": settings.keepAudioAfterPip,
+        "isEpisode": widget.channel.isEpisode,
+        "autoplayNext": settings.autoplayNextEpisode,
+        "autoplayCountdown": settings.autoplayCountdownSeconds,
       };
       _ready = true;
     });
@@ -96,6 +102,10 @@ class _ExoPlayerScreenState extends State<ExoPlayerScreen> {
           _onExit();
         case "switchChannel":
           return _switchChannel(call.arguments as int);
+        case "nextEpisode":
+          return _getNextEpisode(Map<String, dynamic>.from(call.arguments));
+        case "playNext":
+          _playNext();
       }
       return null;
     });
@@ -109,6 +119,7 @@ class _ExoPlayerScreenState extends State<ExoPlayerScreen> {
     if (channel == null || !mounted) return null;
     final headers = await _getHeaders(channel);
     TaskService.instance.addLastWatched(channel.id!);
+    _current = channel;
     return {
       "url": channel.url,
       "title": channel.name,
@@ -119,15 +130,58 @@ class _ExoPlayerScreenState extends State<ExoPlayerScreen> {
     };
   }
 
+  // Called when an episode ended: records it as watched and returns the next
+  // one, which native code offers with a countdown.
+  Future<Map<String, dynamic>?> _getNextEpisode(
+    Map<String, dynamic> args,
+  ) async {
+    final durationMs = (args["duration"] as num?)?.toInt() ?? 0;
+    final positionMs = (args["position"] as num?)?.toInt() ?? durationMs;
+    await TaskService.instance.setMoviePosition(
+      _current.id!,
+      positionMs ~/ 1000,
+      durationMs ~/ 1000,
+    );
+    final next = (await Error.tryAsyncNoLoading(
+      () => NativeBridge.instance.getNextEpisode(_current.id!),
+    )).data;
+    if (next == null || !mounted || _exiting) return null;
+    _nextEpisode = next;
+    final headers = await _getHeaders(next);
+    final seconds = (await Error.tryAsyncNoLoading(
+      () => NativeBridge.instance.getMoviePosition(next.id!),
+    )).data;
+    return {
+      "url": next.url,
+      "title": next.name,
+      "image": next.image,
+      "startPositionMs": (seconds ?? 0) * 1000,
+      "referer": headers?.referrer,
+      "origin": headers?.httpOrigin,
+      "userAgent": headers?.userAgent,
+    };
+  }
+
+  void _playNext() {
+    final next = _nextEpisode;
+    if (next == null) return;
+    _nextEpisode = null;
+    _current = next;
+    TaskService.instance.addLastWatched(next.id!);
+  }
+
   Future<void> _onExit() async {
     if (_exiting) return;
     _exiting = true;
-    if (widget.channel.mediaType == MediaType.movie && _channel != null) {
+    if (_current.mediaType == MediaType.movie && _channel != null) {
       try {
         final posMs = await _channel!.invokeMethod<int>("getPosition") ?? 0;
+        final durationMs =
+            await _channel!.invokeMethod<int>("getDuration") ?? 0;
         await TaskService.instance.setMoviePosition(
-          widget.channel.id!,
+          _current.id!,
           posMs ~/ 1000,
+          durationMs ~/ 1000,
         );
       } catch (_) {}
     }

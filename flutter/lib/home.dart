@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:open_tv/native_bridge.dart';
 import 'package:open_tv/bottom_nav.dart';
 import 'package:open_tv/channel_tile.dart';
+import 'package:open_tv/continue_watching_row.dart';
 import 'package:open_tv/favorite_list_bar.dart';
 import 'package:open_tv/loading.dart';
 import 'package:open_tv/models/channel.dart';
@@ -258,6 +259,11 @@ class _HomeState extends State<Home> {
     return KeyEventResult.ignored;
   }
 
+  bool get _showContinueWatching =>
+      widget.home.filters.viewType == ViewType.all &&
+      widget.home.node == null &&
+      (widget.home.filters.query ?? "").isEmpty;
+
   bool get _isFavoritesView =>
       widget.home.filters.viewType == ViewType.favorites &&
       widget.home.node == null;
@@ -412,6 +418,8 @@ class _HomeState extends State<Home> {
                       ),
                     ),
                   ),
+                  if (_showContinueWatching)
+                    const SliverToBoxAdapter(child: ContinueWatchingRow()),
                   if (_isFavoritesView)
                     SliverToBoxAdapter(
                       child: FavoriteListBar(

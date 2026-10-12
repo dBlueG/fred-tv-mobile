@@ -5,7 +5,9 @@ use std::vec;
 use std::{collections::HashMap, sync::LazyLock};
 
 use crate::sort_type;
-use crate::types::{ChannelPreserve, FavoriteList, Season};
+use crate::types::{
+    BackupChannel, BackupPosition, ChannelPreserve, ContinueWatching, FavoriteList, Season,
+};
 use crate::{
     media_type,
     types::{Channel, ChannelHttpHeaders, Filters, Source},
@@ -199,6 +201,35 @@ ANALYZE;
 DROP INDEX IF EXISTS index_channels_stream_id;
 DROP INDEX IF EXISTS index_channels_tv_archive;
 DROP INDEX IF EXISTS index_channels_episode_num;
+"#,
+    ),
+    // Positions are matched by source, name and URL instead of channel id,
+    // because a source refresh re-creates its channels with new ids. The old
+    // table's ON DELETE CASCADE (the bundled SQLite enforces foreign keys)
+    // erased every position on refresh, so the table is rebuilt without it.
+    M::up(
+        r#"
+CREATE TABLE "movie_positions_new" (
+  "id"         INTEGER PRIMARY KEY,
+  "channel_id" integer,
+  "position"   integer,
+  "duration"   integer,
+  "updated_at" integer,
+  "source_id"  integer,
+  "name"       varchar(100),
+  "url"        varchar(500)
+);
+
+INSERT INTO movie_positions_new (id, channel_id, position, updated_at, source_id, name, url)
+SELECT mp.id, mp.channel_id, mp.position, strftime('%s', 'now'), c.source_id, c.name, c.url
+FROM movie_positions mp
+JOIN channels c ON c.id = mp.channel_id;
+
+DROP TABLE movie_positions;
+ALTER TABLE movie_positions_new RENAME TO movie_positions;
+
+CREATE INDEX index_movie_positions_identity ON movie_positions(source_id, name);
+CREATE INDEX index_movie_positions_updated_at ON movie_positions(updated_at);
 "#,
     )]);
     migrations.to_latest(&mut sql)?;
@@ -767,6 +798,7 @@ fn delete_favorite_list_entries_by_source(
 pub fn delete_source(id: i64) -> Result<()> {
     let sql = get_conn()?;
     delete_favorite_list_entries_by_source(&sql, id)?;
+    sql.execute("DELETE FROM movie_positions WHERE source_id = ?", params![id])?;
     sql.execute(
         r#"
         DELETE FROM channels
@@ -1186,15 +1218,71 @@ pub fn update_source_last_updated(source_id: i64) -> Result<()> {
     Ok(())
 }
 
-pub fn set_movie_position(channel_id: i64, movie_position: i64) -> Result<()> {
+// Positions within a minute of the end (5% for long videos) count as finished
+// and are removed, so the next play starts from the beginning.
+const FINISHED_MARGIN_SECONDS: i64 = 60;
+
+fn is_finished(position: i64, duration: Option<i64>) -> bool {
+    match duration {
+        Some(duration) if duration > 0 => {
+            let margin = (duration / 20).max(FINISHED_MARGIN_SECONDS.min(duration / 10));
+            position >= duration - margin
+        }
+        _ => false,
+    }
+}
+
+// ?2, ?3, ?4: source_id, name, url
+const POSITION_IDENTITY: &str = "(source_id = ?2 AND name = ?3 AND url IS ?4)";
+
+fn channel_identity(
+    conn: &rusqlite::Connection,
+    channel_id: i64,
+) -> Result<Option<(Option<i64>, String, Option<String>)>> {
+    Ok(conn
+        .query_row(
+            "SELECT source_id, name, url FROM channels WHERE id = ?",
+            params![channel_id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .optional()?)
+}
+
+pub fn set_movie_position(
+    channel_id: i64,
+    movie_position: i64,
+    duration: Option<i64>,
+) -> Result<()> {
+    let mut sql = get_conn()?;
+    let Some((source_id, name, url)) = channel_identity(&sql, channel_id)? else {
+        return Ok(());
+    };
+    let tx = sql.transaction()?;
+    tx.execute(
+        &format!("DELETE FROM movie_positions WHERE channel_id = ?1 OR {POSITION_IDENTITY}"),
+        params![channel_id, source_id, name, url],
+    )?;
+    if movie_position > 0 && !is_finished(movie_position, duration) {
+        tx.execute(
+            r#"
+            INSERT INTO movie_positions (channel_id, position, duration, updated_at, source_id, name, url)
+            VALUES (?1, ?5, ?6, strftime('%s', 'now'), ?2, ?3, ?4)
+            "#,
+            params![channel_id, source_id, name, url, movie_position, duration],
+        )?;
+    }
+    tx.commit()?;
+    Ok(())
+}
+
+pub fn remove_movie_position(channel_id: i64) -> Result<()> {
     let sql = get_conn()?;
+    let Some((source_id, name, url)) = channel_identity(&sql, channel_id)? else {
+        return Ok(());
+    };
     sql.execute(
-        r#"
-        INSERT INTO movie_positions (channel_id, position)
-        VALUES (?, ?)
-        ON CONFLICT(channel_id) DO UPDATE SET position = excluded.position
-        "#,
-        params![channel_id, movie_position],
+        &format!("DELETE FROM movie_positions WHERE channel_id = ?1 OR {POSITION_IDENTITY}"),
+        params![channel_id, source_id, name, url],
     )?;
     Ok(())
 }
@@ -1204,9 +1292,12 @@ pub fn get_movie_position(channel_id: i64) -> Result<Option<i64>> {
     let position: Option<i64> = sql
         .query_row(
             r#"
-        SELECT position
-        FROM movie_positions
-        WHERE channel_id = ?
+        SELECT mp.position
+        FROM channels c
+        JOIN movie_positions mp
+          ON mp.source_id = c.source_id AND mp.name = c.name AND mp.url IS c.url
+        WHERE c.id = ?
+        ORDER BY mp.updated_at DESC
         LIMIT 1
     "#,
             params!(channel_id),
@@ -1214,6 +1305,239 @@ pub fn get_movie_position(channel_id: i64) -> Result<Option<i64>> {
         )
         .optional()?;
     Ok(position)
+}
+
+const CONTINUE_WATCHING_LIMIT: u8 = 20;
+// Shorter positions are kept for resuming but not listed.
+const CONTINUE_WATCHING_MIN_SECONDS: i64 = 30;
+
+// Unfinished movies and episodes of enabled sources, most recent first.
+pub fn get_continue_watching() -> Result<Vec<ContinueWatching>> {
+    let sql = get_conn()?;
+    let items = sql
+        .prepare(
+            r#"
+            SELECT c.*, mp.position AS mp_position, mp.duration AS mp_duration,
+              (SELECT s.name FROM channels s
+               WHERE c.series_id IS NOT NULL
+               AND s.source_id = c.source_id
+               AND s.media_type = ?1
+               AND s.url = CAST(c.series_id AS TEXT)
+               LIMIT 1) AS series_name
+            FROM movie_positions mp
+            JOIN channels c
+              ON c.name = mp.name AND c.source_id = mp.source_id AND c.url = mp.url
+            WHERE c.media_type = ?2
+            AND c.source_id IN (SELECT id FROM sources WHERE enabled = 1)
+            AND mp.position >= ?3
+            GROUP BY mp.id
+            ORDER BY mp.updated_at DESC
+            LIMIT ?4
+            "#,
+        )?
+        .query_map(
+            params![
+                media_type::SERIE,
+                media_type::MOVIE,
+                CONTINUE_WATCHING_MIN_SECONDS,
+                CONTINUE_WATCHING_LIMIT
+            ],
+            |row| {
+                Ok(ContinueWatching {
+                    channel: row_to_channel(row)?,
+                    position: row.get("mp_position")?,
+                    duration: row.get("mp_duration")?,
+                    series_name: row.get("series_name")?,
+                })
+            },
+        )?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(items)
+}
+
+// The episode after this one in its series: next by season number, then
+// episode number, then name. None for the last episode or a non-episode.
+pub fn get_next_episode(channel_id: i64) -> Result<Option<Channel>> {
+    let sql = get_conn()?;
+    Ok(sql
+        .query_row(
+            r#"
+            WITH cur AS (
+              SELECT c.series_id, c.source_id,
+                COALESCE(s.season_number, 0) AS sn,
+                COALESCE(c.episode_num, 0) AS en,
+                c.name AS nm
+              FROM channels c
+              LEFT JOIN seasons s ON s.id = c.season_id
+              WHERE c.id = ?1 AND c.series_id IS NOT NULL
+            )
+            SELECT c.*
+            FROM channels c
+            LEFT JOIN seasons s ON s.id = c.season_id
+            JOIN cur ON c.series_id = cur.series_id AND c.source_id = cur.source_id
+            WHERE c.id != ?1
+            AND c.url IS NOT NULL
+            AND (COALESCE(s.season_number, 0), COALESCE(c.episode_num, 0), c.name)
+                > (cur.sn, cur.en, cur.nm)
+            ORDER BY COALESCE(s.season_number, 0), COALESCE(c.episode_num, 0), c.name
+            LIMIT 1
+            "#,
+            params![channel_id],
+            row_to_channel,
+        )
+        .optional()?)
+}
+
+// --- Backup ---
+
+const LIST_SEPARATOR: char = '\u{1f}';
+
+pub fn get_backup_channels() -> Result<Vec<BackupChannel>> {
+    let sql = get_conn()?;
+    let channels = sql
+        .prepare(
+            r#"
+            SELECT s.name AS source, c.name, c.favorite, c.last_watched,
+              (SELECT group_concat(fl.name, char(31))
+               FROM favorite_list_channels flc
+               JOIN favorite_lists fl ON fl.id = flc.list_id
+               WHERE flc.channel_id = c.id) AS lists
+            FROM channels c
+            JOIN sources s ON s.id = c.source_id
+            WHERE (c.favorite = 1 OR c.last_watched IS NOT NULL)
+            AND c.series_id IS NULL
+            "#,
+        )?
+        .query_map([], |row| {
+            Ok(BackupChannel {
+                source: row.get("source")?,
+                name: row.get("name")?,
+                favorite: row.get::<_, Option<bool>>("favorite")?.unwrap_or(false),
+                last_watched: row.get("last_watched")?,
+                lists: row
+                    .get::<_, Option<String>>("lists")?
+                    .map(|l| l.split(LIST_SEPARATOR).map(str::to_string).collect())
+                    .unwrap_or_default(),
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(channels)
+}
+
+pub fn get_backup_positions() -> Result<Vec<BackupPosition>> {
+    let sql = get_conn()?;
+    let positions = sql
+        .prepare(
+            r#"
+            SELECT s.name AS source, mp.name, mp.url, mp.position, mp.duration, mp.updated_at
+            FROM movie_positions mp
+            JOIN sources s ON s.id = mp.source_id
+            "#,
+        )?
+        .query_map([], |row| {
+            Ok(BackupPosition {
+                source: row.get("source")?,
+                name: row.get("name")?,
+                url: row.get("url")?,
+                position: row.get("position")?,
+                duration: row.get("duration")?,
+                updated_at: row.get("updated_at")?,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(positions)
+}
+
+// Adds a source from a backup (without channels) and returns its id.
+pub fn insert_backup_source(source: &Source) -> Result<i64> {
+    do_tx(|tx| {
+        let id = create_or_find_source_by_name(tx, source)?;
+        tx.execute(
+            "UPDATE sources SET enabled = ?, stream_user_agent = ?, last_updated = NULL WHERE id = ?",
+            params![source.enabled, source.stream_user_agent, id],
+        )?;
+        Ok(id)
+    })
+}
+
+// Merges backed-up favorites, history and list membership into the channels
+// of the given source, matched by name. Never removes existing favorites.
+pub fn restore_backup_channels(
+    source_id: i64,
+    channels: &[&BackupChannel],
+    list_ids: &HashMap<String, i64>,
+) -> Result<()> {
+    do_tx(|tx| {
+        for channel in channels {
+            tx.prepare_cached(
+                r#"
+                UPDATE channels
+                SET favorite = (COALESCE(favorite, 0) OR ?1),
+                    last_watched = CASE
+                      WHEN ?2 IS NULL THEN last_watched
+                      WHEN last_watched IS NULL OR last_watched < ?2 THEN ?2
+                      ELSE last_watched END
+                WHERE name = ?3 AND source_id = ?4 AND series_id IS NULL
+                "#,
+            )?
+            .execute(params![
+                channel.favorite,
+                channel.last_watched,
+                channel.name,
+                source_id
+            ])?;
+            if !channel.favorite {
+                continue;
+            }
+            for list in &channel.lists {
+                let Some(list_id) = list_ids.get(&list.to_lowercase()) else {
+                    continue;
+                };
+                tx.prepare_cached(
+                    r#"
+                    INSERT OR IGNORE INTO favorite_list_channels (list_id, channel_id)
+                    SELECT ?, id FROM channels
+                    WHERE name = ? AND source_id = ? AND series_id IS NULL
+                    "#,
+                )?
+                .execute(params![list_id, channel.name, source_id])?;
+            }
+        }
+        Ok(())
+    })
+}
+
+// Adds backed-up positions unless a newer one is already stored.
+pub fn restore_backup_positions(source_id: i64, positions: &[&BackupPosition]) -> Result<()> {
+    do_tx(|tx| {
+        for p in positions {
+            let newer = tx
+                .query_row(
+                    &format!(
+                        "SELECT 1 FROM movie_positions WHERE {POSITION_IDENTITY} AND COALESCE(updated_at, 0) > COALESCE(?1, 0)"
+                    ),
+                    params![p.updated_at, source_id, p.name, p.url],
+                    |_| Ok(()),
+                )
+                .optional()?
+                .is_some();
+            if newer {
+                continue;
+            }
+            tx.execute(
+                &format!("DELETE FROM movie_positions WHERE ?1 IS NULL AND {POSITION_IDENTITY}"),
+                params![Option::<i64>::None, source_id, p.name, p.url],
+            )?;
+            tx.execute(
+                r#"
+                INSERT INTO movie_positions (channel_id, position, duration, updated_at, source_id, name, url)
+                VALUES (NULL, ?, ?, ?, ?, ?, ?)
+                "#,
+                params![p.position, p.duration, p.updated_at, source_id, p.name, p.url],
+            )?;
+        }
+        Ok(())
+    })
 }
 
 pub fn get_whats_new() -> Result<Option<String>> {
@@ -1251,6 +1575,53 @@ pub fn get_sources_by_type(source_type: u8) -> Result<Vec<Source>> {
         .filter_map(Result::ok)
         .collect();
     Ok(sources)
+}
+
+// The connection pool and DB path are process-wide, so DB tests share one
+// database and run one at a time.
+#[cfg(test)]
+pub(crate) mod test_db {
+    use std::sync::{Mutex, MutexGuard, Once};
+
+    static INIT: Once = Once::new();
+    static LOCK: Mutex<()> = Mutex::new(());
+
+    pub fn lock() -> MutexGuard<'static, ()> {
+        let guard = LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        INIT.call_once(|| {
+            let dir = std::env::temp_dir().join(format!("fred-tv-test-{}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&dir);
+            super::DB_PATH_OVERRIDE
+                .set(dir.to_string_lossy().to_string())
+                .unwrap();
+            super::apply_migrations().unwrap();
+        });
+        guard
+    }
+
+    pub fn source(name: &str, source_type: u8, url: Option<&str>) -> i64 {
+        let mut sql = super::get_conn().unwrap();
+        let tx = sql.transaction().unwrap();
+        let id = super::create_or_find_source_by_name(
+            &tx,
+            &crate::types::Source {
+                id: None,
+                name: name.to_string(),
+                url: url.map(str::to_string),
+                url_origin: None,
+                username: None,
+                password: None,
+                source_type,
+                enabled: true,
+                user_agent: None,
+                stream_user_agent: None,
+                last_updated: None,
+            },
+        )
+        .unwrap();
+        tx.commit().unwrap();
+        id
+    }
 }
 
 #[cfg(test)]
@@ -1300,7 +1671,11 @@ mod test_favorite_lists {
     fn channel_id(name: &str) -> i64 {
         get_conn()
             .unwrap()
-            .query_row("SELECT id FROM channels WHERE name = ?", [name], |r| r.get(0))
+            .query_row(
+                "SELECT id FROM channels WHERE name = ? AND source_id = (SELECT id FROM sources WHERE name = 'test')",
+                [name],
+                |r| r.get(0),
+            )
             .unwrap()
     }
 
@@ -1316,37 +1691,10 @@ mod test_favorite_lists {
         tx.commit().unwrap();
     }
 
-    // One test, because the connection pool and DB path are process-wide.
     #[test]
     fn favorite_lists_flow() {
-        let dir = std::env::temp_dir().join(format!("fred-tv-test-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
-        DB_PATH_OVERRIDE.set(dir.to_string_lossy().to_string()).unwrap();
-        apply_migrations().unwrap();
-
-        let source_id = {
-            let mut sql = get_conn().unwrap();
-            let tx = sql.transaction().unwrap();
-            let id = create_or_find_source_by_name(
-                &tx,
-                &crate::types::Source {
-                    id: None,
-                    name: "test".to_string(),
-                    url: None,
-                    url_origin: None,
-                    username: None,
-                    password: None,
-                    source_type: crate::source_type::M3U,
-                    enabled: true,
-                    user_agent: None,
-                    stream_user_agent: None,
-                    last_updated: None,
-                },
-            )
-            .unwrap();
-            tx.commit().unwrap();
-            id
-        };
+        let _db = super::test_db::lock();
+        let source_id = super::test_db::source("test", crate::source_type::M3U, None);
         refresh(source_id, &["BBC News", "ESPN", "CNN"]);
 
         // Creating and validating lists
@@ -1403,5 +1751,202 @@ mod test_favorite_lists {
             .query_row("SELECT count(*) FROM favorite_list_channels", [], |r| r.get(0))
             .unwrap();
         assert_eq!(entries, 0);
+        for list in get_favorite_lists().unwrap() {
+            delete_favorite_list(list.id).unwrap();
+        }
+    }
+}
+
+#[cfg(test)]
+mod test_watch_progress {
+    use super::*;
+    use crate::types::Channel;
+
+    fn movie(name: &str, source_id: i64) -> Channel {
+        Channel {
+            id: None,
+            name: name.to_string(),
+            url: Some(format!("http://example.local/movie/{name}.mp4")),
+            group: None,
+            image: None,
+            media_type: media_type::MOVIE,
+            source_id: Some(source_id),
+            series_id: None,
+            group_id: None,
+            favorite: false,
+            stream_id: None,
+            tv_archive: None,
+            season_id: None,
+            episode_num: None,
+        }
+    }
+
+    fn insert_catalog(source_id: i64) {
+        let mut sql = get_conn().unwrap();
+        let tx = sql.transaction().unwrap();
+        let preserve = get_preserve(&tx, source_id).unwrap();
+        wipe(&tx, source_id).unwrap();
+        insert_channel(&tx, movie("Movie A", source_id)).unwrap();
+        insert_channel(&tx, movie("Movie B", source_id)).unwrap();
+        insert_channel(
+            &tx,
+            Channel {
+                media_type: media_type::SERIE,
+                url: Some("77".to_string()),
+                ..movie("The Show", source_id)
+            },
+        )
+        .unwrap();
+        for season_number in [1, 2] {
+            let season_id = insert_season(
+                &tx,
+                Season {
+                    name: format!("Season {season_number}"),
+                    season_number,
+                    series_id: 77,
+                    source_id,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+            for episode in [2, 1] {
+                insert_channel(
+                    &tx,
+                    Channel {
+                        series_id: Some(77),
+                        season_id: Some(season_id),
+                        episode_num: Some(episode),
+                        url: Some(format!("http://example.local/series/{season_number}{episode}.mp4")),
+                        ..movie(&format!("S{season_number}E{episode}"), source_id)
+                    },
+                )
+                .unwrap();
+            }
+        }
+        restore_preserve(&tx, source_id, preserve).unwrap();
+        tx.commit().unwrap();
+    }
+
+    fn id(name: &str, source_id: i64) -> i64 {
+        get_conn()
+            .unwrap()
+            .query_row(
+                "SELECT id FROM channels WHERE name = ? AND source_id = ?",
+                params![name, source_id],
+                |r| r.get(0),
+            )
+            .unwrap()
+    }
+
+    fn continue_watching(source_id: i64) -> Vec<(String, i64, Option<String>)> {
+        get_continue_watching()
+            .unwrap()
+            .into_iter()
+            .filter(|c| c.channel.source_id == Some(source_id))
+            .map(|c| (c.channel.name, c.position, c.series_name))
+            .collect()
+    }
+
+    #[test]
+    fn positions_continue_watching_and_next_episode() {
+        let _db = test_db::lock();
+        let source_id = test_db::source("watch", crate::source_type::M3U, None);
+        insert_catalog(source_id);
+
+        // Positions and Continue Watching
+        set_movie_position(id("Movie A", source_id), 600, Some(3600)).unwrap();
+        set_movie_position(id("Movie B", source_id), 10, Some(3600)).unwrap();
+        set_movie_position(id("S1E2", source_id), 300, Some(1500)).unwrap();
+        assert_eq!(get_movie_position(id("Movie A", source_id)).unwrap(), Some(600));
+        assert_eq!(get_movie_position(id("Movie B", source_id)).unwrap(), Some(10));
+        let names: Vec<String> = continue_watching(source_id).into_iter().map(|c| c.0).collect();
+        assert!(names.contains(&"Movie A".to_string()));
+        assert!(!names.contains(&"Movie B".to_string()), "too short to list");
+        let episode = continue_watching(source_id)
+            .into_iter()
+            .find(|c| c.0 == "S1E2")
+            .unwrap();
+        assert_eq!(episode.2.as_deref(), Some("The Show"));
+
+        // Positions survive a refresh, which gives channels new ids (another
+        // source's channel takes the next free id, so the ids shift).
+        let old_id = id("Movie A", source_id);
+        let other = test_db::source("watch other", crate::source_type::M3U, None);
+        do_tx(|tx| insert_channel(tx, movie("Other", other))).unwrap();
+        insert_catalog(source_id);
+        assert_ne!(id("Movie A", source_id), old_id);
+        assert_eq!(get_movie_position(id("Movie A", source_id)).unwrap(), Some(600));
+
+        // Updating replaces; finishing removes
+        set_movie_position(id("Movie A", source_id), 900, Some(3600)).unwrap();
+        assert_eq!(get_movie_position(id("Movie A", source_id)).unwrap(), Some(900));
+        set_movie_position(id("Movie A", source_id), 3500, Some(3600)).unwrap();
+        assert_eq!(get_movie_position(id("Movie A", source_id)).unwrap(), None);
+        remove_movie_position(id("S1E2", source_id)).unwrap();
+        assert!(continue_watching(source_id).is_empty());
+
+        // Next episode: by season, then episode number
+        let next = |name: &str| get_next_episode(id(name, source_id)).unwrap().map(|c| c.name);
+        assert_eq!(next("S1E1").as_deref(), Some("S1E2"));
+        assert_eq!(next("S1E2").as_deref(), Some("S2E1"));
+        assert_eq!(next("S2E1").as_deref(), Some("S2E2"));
+        assert_eq!(next("S2E2"), None);
+        assert_eq!(next("Movie A"), None);
+
+        delete_source(source_id).unwrap();
+        delete_source(other).unwrap();
+    }
+
+    #[test]
+    fn backup_round_trip() {
+        let _db = test_db::lock();
+        let source_id = test_db::source(
+            "backup",
+            crate::source_type::M3U,
+            Some("/does/not/exist.m3u"),
+        );
+        insert_catalog(source_id);
+        let list = create_favorite_list("Backup list").unwrap();
+        set_channel_favorite_lists(id("Movie A", source_id), true, &[list.id]).unwrap();
+        set_movie_position(id("Movie B", source_id), 1200, Some(3600)).unwrap();
+        update_settings(HashMap::from([(
+            "seekSeconds".to_string(),
+            Some("30".to_string()),
+        )]))
+        .unwrap();
+
+        let json = crate::backup::export_backup().unwrap();
+        assert!(json.contains("\"Backup list\""));
+
+        // Restore onto an empty database (the source file can't be downloaded)
+        delete_source(source_id).unwrap();
+        delete_favorite_list(list.id).unwrap();
+        update_settings(HashMap::from([(
+            "seekSeconds".to_string(),
+            Some("10".to_string()),
+        )]))
+        .unwrap();
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        let summary = runtime
+            .block_on(crate::backup::import_backup(json.clone()))
+            .unwrap();
+        assert!(summary.contains("Couldn't download backup"), "{summary}");
+        assert_eq!(get_settings().unwrap()["seekSeconds"], "30");
+        let restored = get_sources().unwrap().into_iter().find(|s| s.name == "backup").unwrap();
+        let new_source = restored.id.unwrap();
+
+        // Once the channels exist again, favorites, lists and positions apply
+        insert_catalog(new_source);
+        let summary = runtime.block_on(crate::backup::import_backup(json)).unwrap();
+        assert!(summary.contains("0 sources added"), "{summary}");
+        let movie_a = id("Movie A", new_source);
+        let lists = get_favorite_lists().unwrap();
+        let restored_list = lists.iter().find(|l| l.name == "Backup list").unwrap();
+        assert_eq!(get_channel_favorite_lists(movie_a).unwrap(), [restored_list.id]);
+        assert_eq!(get_movie_position(id("Movie B", new_source)).unwrap(), Some(1200));
+
+        assert!(crate::backup::import_backup_sync_err("{}"));
+        delete_source(new_source).unwrap();
+        delete_favorite_list(restored_list.id).unwrap();
     }
 }

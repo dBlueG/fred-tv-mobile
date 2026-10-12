@@ -85,4 +85,66 @@
         android:textColor="@android:color/white"
         android:textSize="18sp"
         android:visibility="gone" />
+
+    <LinearLayout
+        android:id="@+id/next_episode_overlay"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="32dp"
+        android:layout_marginBottom="96dp"
+        android:background="@drawable/bg_player_panel"
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/next_episode_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="#CCFFFFFF"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/next_episode_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:maxWidth="320dp"
+            android:textColor="@android:color/white"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/next_episode_play"
+                style="?android:attr/buttonBarButtonStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_player_button"
+                android:focusable="true"
+                android:paddingHorizontal="20dp"
+                android:text="@string/next_episode_play"
+                android:textColor="@android:color/white" />
+
+            <Button
+                android:id="@+id/next_episode_cancel"
+                style="?android:attr/buttonBarButtonStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/bg_player_button"
+                android:focusable="true"
+                android:paddingHorizontal="20dp"
+                android:text="@string/next_episode_cancel"
+                android:textColor="@android:color/white" />
+        </LinearLayout>
+    </LinearLayout>
 </dev.fredol.open_tv.PlayerGestureLayout>

@@ -69,6 +69,9 @@ class ExoPlayerView(
     private val doubleTapSeek = params["doubleTapSeek"] as? Boolean ?: true
     private val seekIncrementMs = ((params["seekSeconds"] as? Number)?.toLong() ?: 10L) * 1000L
     private val keepAudioAfterPip = params["keepAudioAfterPip"] as? Boolean ?: false
+    private val isEpisode = params["isEpisode"] as? Boolean ?: false
+    private val autoplayNext = params["autoplayNext"] as? Boolean ?: true
+    private val autoplayCountdownSeconds = (params["autoplayCountdown"] as? Number)?.toInt() ?: 10
     private val debug = (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
 
     private val methodChannel = MethodChannel(messenger, "dev.fredol.open_tv/exoplayer_$viewId")
@@ -91,6 +94,10 @@ class ExoPlayerView(
     private var switchingChannel = false
     private var pausedByPipClose = false
     private var sleepAtMs = 0L
+    // Stop when the current movie or episode ends instead of after a delay.
+    private var sleepAtEnd = false
+    private var nextEpisode: Map<String, Any?>? = null
+    private var countdownLeft = 0
     private var seekForward = true
     private var seekAccumulatedMs = 0L
 
@@ -107,7 +114,23 @@ class ExoPlayerView(
         seekBackIndicator.visibility = View.GONE
         seekForwardIndicator.visibility = View.GONE
     }
+    private val countdownTick = object : Runnable {
+        override fun run() {
+            countdownLeft--
+            if (countdownLeft <= 0) {
+                playNextEpisode()
+            } else {
+                updateCountdownLabel()
+                handler.postDelayed(this, 1_000L)
+            }
+        }
+    }
     private val channelIndicator: TextView
+    private val nextOverlay: View
+    private val nextLabel: TextView
+    private val nextTitle: TextView
+    private val nextPlayButton: View
+    private val nextCancelButton: View
     private val seekBackIndicator: TextView
     private val seekForwardIndicator: TextView
 
@@ -158,6 +181,15 @@ class ExoPlayerView(
         channelIndicator = root.findViewById(R.id.channel_indicator)
         seekBackIndicator = root.findViewById(R.id.seek_indicator_back)
         seekForwardIndicator = root.findViewById(R.id.seek_indicator_forward)
+        nextOverlay = root.findViewById(R.id.next_episode_overlay)
+        nextLabel = root.findViewById(R.id.next_episode_label)
+        nextTitle = root.findViewById(R.id.next_episode_title)
+        nextPlayButton = root.findViewById<View>(R.id.next_episode_play).apply {
+            setOnClickListener { playNextEpisode() }
+        }
+        nextCancelButton = root.findViewById<View>(R.id.next_episode_cancel).apply {
+            setOnClickListener { hideNextEpisode() }
+        }
         updateGestureFlags(inPip = false)
         if (debug) player.addAnalyticsListener(EventLogger(DIAG_TAG))
         attachPlayer()
@@ -240,9 +272,13 @@ class ExoPlayerView(
 
     private fun observePlayWhenReady() {
         player.addListener(object : Player.Listener {
+            override fun onPlaybackStateChanged(state: Int) {
+                updateKeepScreenOn()
+                if (state == Player.STATE_ENDED && !isLive) onMediaEnded()
+            }
+
             override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
-                // Let the screen turn off while paused (e.g. after the sleep timer).
-                root.keepScreenOn = playWhenReady
+                updateKeepScreenOn()
                 if (!isLive) return
                 updateLiveControls()
                 // A resumed live stream jumps back to the live edge instead of
@@ -255,6 +291,84 @@ class ExoPlayerView(
                 }
             }
         })
+    }
+
+    // Let the screen turn off while paused or finished (e.g. after the sleep timer).
+    private fun updateKeepScreenOn() {
+        root.keepScreenOn = player.playWhenReady && player.playbackState != Player.STATE_ENDED
+    }
+
+    private fun onMediaEnded() {
+        if (sleepAtEnd) {
+            sleepAtEnd = false
+            updateSleepButton()
+            toast("Sleep timer: playback stopped")
+            return
+        }
+        if (isEpisode && autoplayNext) requestNextEpisode()
+    }
+
+    // Asks Flutter for the episode after this one and offers it with a countdown.
+    private fun requestNextEpisode() {
+        val args = mapOf("position" to player.currentPosition, "duration" to player.duration)
+        methodChannel.invokeMethod("nextEpisode", args, object : MethodChannel.Result {
+            override fun success(result: Any?) {
+                @Suppress("UNCHECKED_CAST")
+                val next = result as? Map<String, Any?> ?: return
+                if (player.playbackState != Player.STATE_ENDED) return
+                showNextEpisode(next)
+            }
+
+            override fun error(errorCode: String, errorMessage: String?, errorDetails: Any?) {}
+            override fun notImplemented() {}
+        })
+    }
+
+    private fun showNextEpisode(next: Map<String, Any?>) {
+        nextEpisode = next
+        nextTitle.text = next["title"] as? String ?: ""
+        countdownLeft = autoplayCountdownSeconds
+        updateCountdownLabel()
+        nextOverlay.visibility = View.VISIBLE
+        nextPlayButton.requestFocus()
+        handler.removeCallbacks(countdownTick)
+        handler.postDelayed(countdownTick, 1_000L)
+    }
+
+    private fun updateCountdownLabel() {
+        nextLabel.text = "Next episode in $countdownLeft s"
+    }
+
+    private fun hideNextEpisode() {
+        handler.removeCallbacks(countdownTick)
+        nextOverlay.visibility = View.GONE
+        nextEpisode = null
+    }
+
+    private fun playNextEpisode() {
+        val next = nextEpisode ?: return
+        hideNextEpisode()
+        methodChannel.invokeMethod("playNext", null)
+        loadChannel(next)
+    }
+
+    // While the next-episode overlay is shown, the remote moves between its buttons.
+    private fun dispatchOverlayKey(event: KeyEvent): Boolean {
+        when (event.keyCode) {
+            KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                if (event.action == KeyEvent.ACTION_DOWN) {
+                    (if (nextPlayButton.isFocused) nextCancelButton else nextPlayButton).requestFocus()
+                }
+            }
+            KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER -> {
+                if (event.action == KeyEvent.ACTION_UP) {
+                    (if (nextCancelButton.isFocused) nextCancelButton else nextPlayButton).performClick()
+                }
+            }
+            KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN -> {}
+            else -> return false
+        }
+        return true
     }
 
     private fun observeForReconnect() {
@@ -399,7 +513,10 @@ class ExoPlayerView(
         handler.removeCallbacks(reconnectRunnable)
         reconnecting = false
         reconnectAttempts = 0
+        hideNextEpisode()
         player.setMediaItem(mediaItem())
+        val startMs = (params["startPositionMs"] as? Number)?.toLong() ?: 0L
+        if (!isLive && startMs > 0) player.seekTo(startMs)
         player.playWhenReady = true
         player.prepare()
         channelIndicator.text = title
@@ -410,30 +527,46 @@ class ExoPlayerView(
 
     private fun showSleepTimerDialog() {
         val remainingMs = sleepAtMs - SystemClock.elapsedRealtime()
-        val dialogTitle = if (sleepAtMs > 0 && remainingMs > 0) {
-            "Sleep timer (${(remainingMs + 59_999) / 60_000} min left)"
-        } else {
-            "Sleep timer"
+        val endLabel = if (isEpisode) "End of episode" else "End of movie"
+        val dialogTitle = when {
+            sleepAtEnd -> "Sleep timer (${endLabel.lowercase()})"
+            sleepAtMs > 0 && remainingMs > 0 -> "Sleep timer (${(remainingMs + 59_999) / 60_000} min left)"
+            else -> "Sleep timer"
         }
-        val labels = listOf("Off") + SLEEP_TIMER_MINUTES.map { "$it minutes" }
+        val labels = listOf("Off") + SLEEP_TIMER_MINUTES.map { "$it minutes" } +
+            (if (isLive) emptyList() else listOf(endLabel))
         AlertDialog.Builder(playerView.context, android.R.style.Theme_DeviceDefault_Dialog_Alert)
             .setTitle(dialogTitle)
             .setItems(labels.toTypedArray()) { dialog, which ->
-                setSleepTimer(if (which == 0) 0 else SLEEP_TIMER_MINUTES[which - 1])
+                when {
+                    which == 0 -> setSleepTimer(0)
+                    which <= SLEEP_TIMER_MINUTES.size -> setSleepTimer(SLEEP_TIMER_MINUTES[which - 1])
+                    else -> setSleepAtEnd()
+                }
                 dialog.dismiss()
             }
             .show()
     }
 
+    private fun setSleepAtEnd() {
+        handler.removeCallbacks(sleepRunnable)
+        sleepAtMs = 0L
+        sleepAtEnd = true
+        toast(if (isEpisode) "Playback will stop after this episode" else "Playback will stop after this movie")
+        updateSleepButton()
+    }
+
     private fun setSleepTimer(minutes: Int) {
         handler.removeCallbacks(sleepRunnable)
+        val wasSet = sleepAtMs > 0 || sleepAtEnd
+        sleepAtEnd = false
         if (minutes > 0) {
             val delayMs = minutes * 60_000L
             sleepAtMs = SystemClock.elapsedRealtime() + delayMs
             handler.postDelayed(sleepRunnable, delayMs)
             toast("Playback will stop in $minutes minutes")
         } else {
-            if (sleepAtMs > 0) toast("Sleep timer off")
+            if (wasSet) toast("Sleep timer off")
             sleepAtMs = 0L
         }
         updateSleepButton()
@@ -441,6 +574,7 @@ class ExoPlayerView(
 
     private fun onSleepTimerFired() {
         sleepAtMs = 0L
+        hideNextEpisode()
         player.pause()
         updateSleepButton()
         toast("Sleep timer: playback stopped")
@@ -448,7 +582,8 @@ class ExoPlayerView(
 
     private fun updateSleepButton() {
         val button = playerView.findViewById<ImageView?>(R.id.sleep_button) ?: return
-        button.imageTintList = ColorStateList.valueOf(if (sleepAtMs > 0) ACTIVE_TINT else Color.WHITE)
+        val active = sleepAtMs > 0 || sleepAtEnd
+        button.imageTintList = ColorStateList.valueOf(if (active) ACTIVE_TINT else Color.WHITE)
     }
 
     private fun toast(message: String) {
@@ -565,6 +700,7 @@ class ExoPlayerView(
 
     fun dispatchDpad(event: KeyEvent): Boolean {
         val keyCode = event.keyCode
+        if (nextOverlay.visibility == View.VISIBLE && dispatchOverlayKey(event)) return true
         if (canSwitchChannel) {
             val delta = channelKeyDelta(keyCode)
             if (delta != 0) {
@@ -657,6 +793,7 @@ class ExoPlayerView(
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "getPosition" -> result.success(player.currentPosition)
+            "getDuration" -> result.success(player.duration.takeIf { it != C.TIME_UNSET } ?: 0L)
             else -> result.notImplemented()
         }
     }

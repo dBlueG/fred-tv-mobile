@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:animations/animations.dart';
@@ -14,6 +16,7 @@ import 'package:open_tv/models/steps.dart';
 import 'package:open_tv/models/view_type.dart';
 import 'package:open_tv/error.dart';
 import 'package:open_tv/native_bridge.dart';
+import 'package:open_tv/task_service.dart';
 import 'package:open_tv/tv_home.dart';
 
 class Setup extends StatefulWidget {
@@ -31,6 +34,7 @@ class _SetupState extends State<Setup> {
   bool isForward = true;
   bool formValid = false;
   bool loading = false;
+  bool restoring = false;
   final Map<Steps, FocusNode> focusNodes = {
     Steps.name: FocusNode(),
     Steps.url: FocusNode(),
@@ -252,6 +256,30 @@ class _SetupState extends State<Setup> {
     }
   }
 
+  // First run only: restores sources and everything else from a backup file.
+  Future<void> restoreBackup() async {
+    if (loading) return;
+    final picked = await Error.tryAsyncNoLoading(() async {
+      final result = await FilePicker.platform.pickFiles(withData: true);
+      final bytes = result?.files.single.bytes;
+      return bytes != null ? utf8.decode(bytes) : null;
+    });
+    final json = picked.data;
+    if (json == null || !mounted) return;
+    setState(() {
+      restoring = true;
+      loading = true;
+    });
+    await TaskService.instance.importBackup(json);
+    final hasSources = await NativeBridge.instance.hasSources();
+    if (!mounted) return;
+    setState(() {
+      restoring = false;
+      loading = false;
+    });
+    if (hasSources) navigateToHome();
+  }
+
   void navigateToHome() {
     Navigator.pushAndRemoveUntil(
       context,
@@ -393,7 +421,7 @@ class _SetupState extends State<Setup> {
       !loading && step != Steps.welcome && step != Steps.finish;
 
   Widget get loadingPage => getPage(
-    "Adding your source",
+    restoring ? "Restoring your backup" : "Adding your source",
     "This can take a moment, hang tight",
     const [
       SizedBox(
@@ -411,7 +439,15 @@ class _SetupState extends State<Setup> {
         return getPage(
           "Welcome to Fred TV",
           "Let's set up your ${widget.showAppBar ? "new" : "first"} source",
-          null,
+          widget.showAppBar
+              ? null
+              : [
+                  TextButton.icon(
+                    onPressed: restoreBackup,
+                    icon: const Icon(Icons.restore),
+                    label: const Text("Restore from a backup"),
+                  ),
+                ],
         );
       case Steps.sourceType:
         return getPage(

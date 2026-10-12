@@ -9,6 +9,7 @@ import 'package:protobuf/protobuf.dart' as $pb;
 import 'generated/generated_proto.pb.dart' as pb;
 import 'generated/bindings.dart' as ffi;
 import 'package:open_tv/models/channel.dart';
+import 'package:open_tv/models/continue_watching_item.dart';
 import 'package:open_tv/models/favorite_list.dart';
 import 'package:open_tv/models/source.dart';
 import 'package:open_tv/models/filters.dart';
@@ -272,13 +273,71 @@ class NativeBridge {
     });
   }
 
-  Future<void> setMoviePosition(int channelId, int position) async {
+  Future<void> setMoviePosition(
+    int channelId,
+    int position, [
+    int? duration,
+  ]) async {
     await _executeWithMsg(
-      pb.MoviePosition(channelId: Int64(channelId), position: Int64(position)),
+      pb.MoviePosition(
+        channelId: Int64(channelId),
+        position: Int64(position),
+        duration: duration != null && duration > 0 ? Int64(duration) : null,
+      ),
       (id, ptr, len, cb) {
         _bindings.set_movie_position(id, cb, ptr, len);
       },
     );
+  }
+
+  Future<void> removeMoviePosition(int channelId) async {
+    await _executeWithMsg(pb.IdMessage(value: Int64(channelId)), (
+      id,
+      ptr,
+      len,
+      cb,
+    ) {
+      _bindings.remove_movie_position(id, cb, ptr, len);
+    });
+  }
+
+  Future<List<ContinueWatchingItem>> getContinueWatching() async {
+    final result = await _executeAsync((id, cb) {
+      _bindings.get_continue_watching(id, cb);
+    });
+    return result.continueWatching.items.map((i) => i.toDomain()).toList();
+  }
+
+  Future<Channel?> getNextEpisode(int channelId) async {
+    final result = await _executeWithMsg(pb.IdMessage(value: Int64(channelId)), (
+      id,
+      ptr,
+      len,
+      cb,
+    ) {
+      _bindings.get_next_episode(id, cb, ptr, len);
+    });
+    return result.hasChannel() ? result.channel.toDomain() : null;
+  }
+
+  Future<String> exportBackup() async {
+    final result = await _executeAsync((id, cb) {
+      _bindings.export_backup(id, cb);
+    });
+    return result.strMessage.value;
+  }
+
+  // Returns a summary of what was restored.
+  Future<String> importBackup(String json) async {
+    final result = await _executeWithMsg(pb.StrMessage(value: json), (
+      id,
+      ptr,
+      len,
+      cb,
+    ) {
+      _bindings.import_backup(id, cb, ptr, len);
+    });
+    return result.strMessage.value;
   }
 
   Future<int?> getMoviePosition(int id) async {

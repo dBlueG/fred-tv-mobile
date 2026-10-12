@@ -1,4 +1,7 @@
+import 'dart:convert';
 import 'dart:io' show Platform;
+
+import 'package:file_picker/file_picker.dart';
 
 import 'package:flutter/material.dart';
 import 'package:open_tv/extensions/int_extensions.dart';
@@ -169,6 +172,102 @@ class _SettingsState extends State<SettingsView> {
     );
   }
 
+  Future<void> _showAutoplayCountdownDialog(BuildContext context) async {
+    showDialog(
+      barrierDismissible: true,
+      context: context,
+      builder: (BuildContext context) {
+        return SelectDialog(
+          title: "Countdown before the next episode",
+          data: Settings.autoplayCountdownOptions
+              .map((x) => IdData(id: x, data: "$x seconds"))
+              .toList(),
+          action: (seconds) {
+            setState(() {
+              settings.autoplayCountdownSeconds = seconds;
+              updateSettings();
+            });
+            Navigator.of(context).pop();
+          },
+          previouslySelectedId: settings.autoplayCountdownSeconds,
+        );
+      },
+    );
+  }
+
+  Future<void> exportBackup() async {
+    await TaskService.instance.exportBackup((json) async {
+      final date = DateTime.now().toIso8601String().substring(0, 10);
+      final path = await FilePicker.platform.saveFile(
+        dialogTitle: "Save backup",
+        fileName: "fred-tv-backup-$date.json",
+        bytes: utf8.encode(json),
+      );
+      return path != null;
+    });
+  }
+
+  Future<void> restoreBackup() async {
+    if (TaskService.instance.busy) {
+      TaskService.instance.notifyBusy();
+      return;
+    }
+    final result = await Error.tryAsyncNoLoading(() async {
+      final picked = await FilePicker.platform.pickFiles(withData: true);
+      final bytes = picked?.files.single.bytes;
+      return bytes != null ? utf8.decode(bytes) : null;
+    });
+    final json = result.data;
+    if (json == null || !mounted) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Restore backup?"),
+        content: const Text(
+          "Settings will be replaced. Sources in the backup that aren't on "
+          "this device are added and downloaded. Favorites, favorite lists, "
+          "history and watch progress are merged with what's here.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            autofocus: true,
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text("Restore"),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await TaskService.instance.importBackup(json);
+    if (!mounted) return;
+    await initAsync();
+  }
+
+  List<Widget> _backupSettings() {
+    return [
+      const Divider(),
+      _sectionTitle("Backup"),
+      ListTile(
+        title: const Text("Export backup"),
+        subtitle: const Text(
+          "Sources (including passwords), settings, favorites, history and "
+          "watch progress",
+        ),
+        leading: const Icon(Icons.upload_file),
+        onTap: exportBackup,
+      ),
+      ListTile(
+        title: const Text("Restore backup"),
+        leading: const Icon(Icons.restore),
+        onTap: restoreBackup,
+      ),
+    ];
+  }
+
   Widget _switchTile({
     required String title,
     String? subtitle,
@@ -230,6 +329,18 @@ class _SettingsState extends State<SettingsView> {
           value: settings.doubleTapSeek,
           onChanged: (v) => settings.doubleTapSeek = v,
         ),
+      _switchTile(
+        title: "Auto-play next episode",
+        subtitle: "With a countdown when an episode ends",
+        value: settings.autoplayNextEpisode,
+        onChanged: (v) => settings.autoplayNextEpisode = v,
+      ),
+      ListTile(
+        title: const Text("Next episode countdown"),
+        subtitle: Text("${settings.autoplayCountdownSeconds} seconds"),
+        enabled: settings.autoplayNextEpisode,
+        onTap: () => _showAutoplayCountdownDialog(context),
+      ),
       ListTile(
         title: const Text("Seek amount"),
         subtitle: Text("${settings.seekSeconds} seconds"),
@@ -509,6 +620,12 @@ class _SettingsState extends State<SettingsView> {
                             ],
                           ),
                         ),
+                        _switchTile(
+                          title: "Show Continue Watching",
+                          subtitle: "Unfinished movies and episodes on the home screen",
+                          value: settings.showContinueWatching,
+                          onChanged: (v) => settings.showContinueWatching = v,
+                        ),
                         if (!widget.tvMode)
                           ListTile(
                             title: const Text("Show livestreams"),
@@ -564,6 +681,7 @@ class _SettingsState extends State<SettingsView> {
                             ),
                           ),
                         ..._playerSettings(),
+                        ..._backupSettings(),
                         const Divider(),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,

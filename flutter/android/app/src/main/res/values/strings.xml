@@ -4,4 +4,6 @@
     <string name="exo_audio">Audio track</string>
     <string name="exo_zoom">Aspect ratio</string>
     <string name="sleep_timer">Sleep timer</string>
+    <string name="next_episode_play">Play now</string>
+    <string name="next_episode_cancel">Cancel</string>
 </resources>

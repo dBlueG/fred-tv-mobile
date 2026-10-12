@@ -1,6 +1,7 @@
 import 'package:fixnum/fixnum.dart';
 import 'package:open_tv/generated/generated_proto.pb.dart' as pb;
 import 'package:open_tv/models/channel.dart';
+import 'package:open_tv/models/continue_watching_item.dart';
 import 'package:open_tv/models/favorite_list.dart';
 import 'package:open_tv/models/source.dart';
 import 'package:open_tv/models/filters.dart';
@@ -24,6 +25,17 @@ extension ChannelProtoExtension on pb.Channel {
     favorite: favorite,
     seriesId: hasSeriesId() ? seriesId.toInt() : null,
     streamId: hasStreamId() ? streamId.toInt() : null,
+    seasonId: hasSeasonId() ? seasonId.toInt() : null,
+    tvArchive: hasTvArchive() && tvArchive,
+  );
+}
+
+extension ContinueWatchingProtoExtension on pb.ContinueWatchingItem {
+  ContinueWatchingItem toDomain() => ContinueWatchingItem(
+    channel: channel.toDomain(),
+    position: position.toInt(),
+    duration: hasDuration() ? duration.toInt() : null,
+    seriesName: hasSeriesName() ? seriesName : null,
   );
 }
 
@@ -92,6 +104,13 @@ extension SettingsProtoExtension on pb.Settings {
     seekSeconds: hasSeekSeconds() ? seekSeconds : 10,
     pictureInPicture: hasPictureInPicture() ? pictureInPicture : true,
     keepAudioAfterPip: hasKeepAudioAfterPip() ? keepAudioAfterPip : false,
+    showContinueWatching: hasShowContinueWatching()
+        ? showContinueWatching
+        : true,
+    autoplayNextEpisode: hasAutoplayNextEpisode() ? autoplayNextEpisode : true,
+    autoplayCountdownSeconds: hasAutoplayCountdownSeconds()
+        ? autoplayCountdownSeconds
+        : 10,
   );
 }
 
@@ -111,6 +130,9 @@ extension SettingsDomainExtension on Settings {
     seekSeconds: seekSeconds,
     pictureInPicture: pictureInPicture,
     keepAudioAfterPip: keepAudioAfterPip,
+    showContinueWatching: showContinueWatching,
+    autoplayNextEpisode: autoplayNextEpisode,
+    autoplayCountdownSeconds: autoplayCountdownSeconds,
   );
 }
 

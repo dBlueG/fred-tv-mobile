@@ -475,6 +475,9 @@ class Settings extends $pb.GeneratedMessage {
     $core.int? seekSeconds,
     $core.bool? pictureInPicture,
     $core.bool? keepAudioAfterPip,
+    $core.bool? showContinueWatching,
+    $core.bool? autoplayNextEpisode,
+    $core.int? autoplayCountdownSeconds,
   }) {
     final result = create();
     if (useStreamCaching != null) result.useStreamCaching = useStreamCaching;
@@ -493,6 +496,12 @@ class Settings extends $pb.GeneratedMessage {
     if (seekSeconds != null) result.seekSeconds = seekSeconds;
     if (pictureInPicture != null) result.pictureInPicture = pictureInPicture;
     if (keepAudioAfterPip != null) result.keepAudioAfterPip = keepAudioAfterPip;
+    if (showContinueWatching != null)
+      result.showContinueWatching = showContinueWatching;
+    if (autoplayNextEpisode != null)
+      result.autoplayNextEpisode = autoplayNextEpisode;
+    if (autoplayCountdownSeconds != null)
+      result.autoplayCountdownSeconds = autoplayCountdownSeconds;
     return result;
   }
 
@@ -527,6 +536,10 @@ class Settings extends $pb.GeneratedMessage {
         fieldType: $pb.PbFieldType.OU3)
     ..aOB(13, _omitFieldNames ? '' : 'pictureInPicture')
     ..aOB(14, _omitFieldNames ? '' : 'keepAudioAfterPip')
+    ..aOB(15, _omitFieldNames ? '' : 'showContinueWatching')
+    ..aOB(16, _omitFieldNames ? '' : 'autoplayNextEpisode')
+    ..aI(17, _omitFieldNames ? '' : 'autoplayCountdownSeconds',
+        fieldType: $pb.PbFieldType.OU3)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -672,6 +685,34 @@ class Settings extends $pb.GeneratedMessage {
   $core.bool hasKeepAudioAfterPip() => $_has(13);
   @$pb.TagNumber(14)
   void clearKeepAudioAfterPip() => $_clearField(14);
+
+  @$pb.TagNumber(15)
+  $core.bool get showContinueWatching => $_getBF(14);
+  @$pb.TagNumber(15)
+  set showContinueWatching($core.bool value) => $_setBool(14, value);
+  @$pb.TagNumber(15)
+  $core.bool hasShowContinueWatching() => $_has(14);
+  @$pb.TagNumber(15)
+  void clearShowContinueWatching() => $_clearField(15);
+
+  @$pb.TagNumber(16)
+  $core.bool get autoplayNextEpisode => $_getBF(15);
+  @$pb.TagNumber(16)
+  set autoplayNextEpisode($core.bool value) => $_setBool(15, value);
+  @$pb.TagNumber(16)
+  $core.bool hasAutoplayNextEpisode() => $_has(15);
+  @$pb.TagNumber(16)
+  void clearAutoplayNextEpisode() => $_clearField(16);
+
+  @$pb.TagNumber(17)
+  $core.int get autoplayCountdownSeconds => $_getIZ(16);
+  @$pb.TagNumber(17)
+  set autoplayCountdownSeconds($core.int value) =>
+      $_setUnsignedInt32(16, value);
+  @$pb.TagNumber(17)
+  $core.bool hasAutoplayCountdownSeconds() => $_has(16);
+  @$pb.TagNumber(17)
+  void clearAutoplayCountdownSeconds() => $_clearField(17);
 }
 
 class Filters extends $pb.GeneratedMessage {
@@ -1272,10 +1313,12 @@ class MoviePosition extends $pb.GeneratedMessage {
   factory MoviePosition({
     $fixnum.Int64? channelId,
     $fixnum.Int64? position,
+    $fixnum.Int64? duration,
   }) {
     final result = create();
     if (channelId != null) result.channelId = channelId;
     if (position != null) result.position = position;
+    if (duration != null) result.duration = duration;
     return result;
   }
 
@@ -1295,6 +1338,7 @@ class MoviePosition extends $pb.GeneratedMessage {
       createEmptyInstance: create)
     ..aInt64(1, _omitFieldNames ? '' : 'channelId')
     ..aInt64(2, _omitFieldNames ? '' : 'position')
+    ..aInt64(3, _omitFieldNames ? '' : 'duration')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1333,6 +1377,159 @@ class MoviePosition extends $pb.GeneratedMessage {
   $core.bool hasPosition() => $_has(1);
   @$pb.TagNumber(2)
   void clearPosition() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $fixnum.Int64 get duration => $_getI64(2);
+  @$pb.TagNumber(3)
+  set duration($fixnum.Int64 value) => $_setInt64(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasDuration() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearDuration() => $_clearField(3);
+}
+
+class ContinueWatchingItem extends $pb.GeneratedMessage {
+  factory ContinueWatchingItem({
+    Channel? channel,
+    $fixnum.Int64? position,
+    $fixnum.Int64? duration,
+    $core.String? seriesName,
+  }) {
+    final result = create();
+    if (channel != null) result.channel = channel;
+    if (position != null) result.position = position;
+    if (duration != null) result.duration = duration;
+    if (seriesName != null) result.seriesName = seriesName;
+    return result;
+  }
+
+  ContinueWatchingItem._();
+
+  factory ContinueWatchingItem.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ContinueWatchingItem.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ContinueWatchingItem',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'generated_proto'),
+      createEmptyInstance: create)
+    ..aOM<Channel>(1, _omitFieldNames ? '' : 'channel',
+        subBuilder: Channel.create)
+    ..aInt64(2, _omitFieldNames ? '' : 'position')
+    ..aInt64(3, _omitFieldNames ? '' : 'duration')
+    ..aOS(4, _omitFieldNames ? '' : 'seriesName')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ContinueWatchingItem clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ContinueWatchingItem copyWith(void Function(ContinueWatchingItem) updates) =>
+      super.copyWith((message) => updates(message as ContinueWatchingItem))
+          as ContinueWatchingItem;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ContinueWatchingItem create() => ContinueWatchingItem._();
+  @$core.override
+  ContinueWatchingItem createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ContinueWatchingItem getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ContinueWatchingItem>(create);
+  static ContinueWatchingItem? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  Channel get channel => $_getN(0);
+  @$pb.TagNumber(1)
+  set channel(Channel value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasChannel() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearChannel() => $_clearField(1);
+  @$pb.TagNumber(1)
+  Channel ensureChannel() => $_ensure(0);
+
+  @$pb.TagNumber(2)
+  $fixnum.Int64 get position => $_getI64(1);
+  @$pb.TagNumber(2)
+  set position($fixnum.Int64 value) => $_setInt64(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasPosition() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearPosition() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $fixnum.Int64 get duration => $_getI64(2);
+  @$pb.TagNumber(3)
+  set duration($fixnum.Int64 value) => $_setInt64(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasDuration() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearDuration() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get seriesName => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set seriesName($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasSeriesName() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearSeriesName() => $_clearField(4);
+}
+
+class ContinueWatchingList extends $pb.GeneratedMessage {
+  factory ContinueWatchingList({
+    $core.Iterable<ContinueWatchingItem>? items,
+  }) {
+    final result = create();
+    if (items != null) result.items.addAll(items);
+    return result;
+  }
+
+  ContinueWatchingList._();
+
+  factory ContinueWatchingList.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ContinueWatchingList.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ContinueWatchingList',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'generated_proto'),
+      createEmptyInstance: create)
+    ..pPM<ContinueWatchingItem>(1, _omitFieldNames ? '' : 'items',
+        subBuilder: ContinueWatchingItem.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ContinueWatchingList clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ContinueWatchingList copyWith(void Function(ContinueWatchingList) updates) =>
+      super.copyWith((message) => updates(message as ContinueWatchingList))
+          as ContinueWatchingList;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ContinueWatchingList create() => ContinueWatchingList._();
+  @$core.override
+  ContinueWatchingList createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ContinueWatchingList getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ContinueWatchingList>(create);
+  static ContinueWatchingList? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbList<ContinueWatchingItem> get items => $_getList(0);
 }
 
 class StrMessage extends $pb.GeneratedMessage {
@@ -2046,6 +2243,9 @@ enum FFIResult_Data {
   favoriteList,
   favoriteLists,
   idList,
+  strMessage,
+  continueWatching,
+  channel,
   notSet
 }
 
@@ -2065,6 +2265,9 @@ class FFIResult extends $pb.GeneratedMessage {
     FavoriteList? favoriteList,
     FavoriteListList? favoriteLists,
     IdList? idList,
+    StrMessage? strMessage,
+    ContinueWatchingList? continueWatching,
+    Channel? channel,
   }) {
     final result = create();
     if (success != null) result.success = success;
@@ -2082,6 +2285,9 @@ class FFIResult extends $pb.GeneratedMessage {
     if (favoriteList != null) result.favoriteList = favoriteList;
     if (favoriteLists != null) result.favoriteLists = favoriteLists;
     if (idList != null) result.idList = idList;
+    if (strMessage != null) result.strMessage = strMessage;
+    if (continueWatching != null) result.continueWatching = continueWatching;
+    if (channel != null) result.channel = channel;
     return result;
   }
 
@@ -2107,6 +2313,9 @@ class FFIResult extends $pb.GeneratedMessage {
     13: FFIResult_Data.favoriteList,
     14: FFIResult_Data.favoriteLists,
     15: FFIResult_Data.idList,
+    16: FFIResult_Data.strMessage,
+    17: FFIResult_Data.continueWatching,
+    18: FFIResult_Data.channel,
     0: FFIResult_Data.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
@@ -2114,7 +2323,7 @@ class FFIResult extends $pb.GeneratedMessage {
       package:
           const $pb.PackageName(_omitMessageNames ? '' : 'generated_proto'),
       createEmptyInstance: create)
-    ..oo(0, [3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15])
+    ..oo(0, [3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18])
     ..aOB(1, _omitFieldNames ? '' : 'success')
     ..aOS(2, _omitFieldNames ? '' : 'errorMessage')
     ..aOM<Settings>(3, _omitFieldNames ? '' : 'settings',
@@ -2141,6 +2350,12 @@ class FFIResult extends $pb.GeneratedMessage {
         subBuilder: FavoriteListList.create)
     ..aOM<IdList>(15, _omitFieldNames ? '' : 'idList',
         subBuilder: IdList.create)
+    ..aOM<StrMessage>(16, _omitFieldNames ? '' : 'strMessage',
+        subBuilder: StrMessage.create)
+    ..aOM<ContinueWatchingList>(17, _omitFieldNames ? '' : 'continueWatching',
+        subBuilder: ContinueWatchingList.create)
+    ..aOM<Channel>(18, _omitFieldNames ? '' : 'channel',
+        subBuilder: Channel.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2173,6 +2388,9 @@ class FFIResult extends $pb.GeneratedMessage {
   @$pb.TagNumber(13)
   @$pb.TagNumber(14)
   @$pb.TagNumber(15)
+  @$pb.TagNumber(16)
+  @$pb.TagNumber(17)
+  @$pb.TagNumber(18)
   FFIResult_Data whichData() => _FFIResult_DataByTag[$_whichOneof(0)]!;
   @$pb.TagNumber(3)
   @$pb.TagNumber(4)
@@ -2186,6 +2404,9 @@ class FFIResult extends $pb.GeneratedMessage {
   @$pb.TagNumber(13)
   @$pb.TagNumber(14)
   @$pb.TagNumber(15)
+  @$pb.TagNumber(16)
+  @$pb.TagNumber(17)
+  @$pb.TagNumber(18)
   void clearData() => $_clearField($_whichOneof(0));
 
   @$pb.TagNumber(1)
@@ -2338,6 +2559,39 @@ class FFIResult extends $pb.GeneratedMessage {
   void clearIdList() => $_clearField(15);
   @$pb.TagNumber(15)
   IdList ensureIdList() => $_ensure(13);
+
+  @$pb.TagNumber(16)
+  StrMessage get strMessage => $_getN(14);
+  @$pb.TagNumber(16)
+  set strMessage(StrMessage value) => $_setField(16, value);
+  @$pb.TagNumber(16)
+  $core.bool hasStrMessage() => $_has(14);
+  @$pb.TagNumber(16)
+  void clearStrMessage() => $_clearField(16);
+  @$pb.TagNumber(16)
+  StrMessage ensureStrMessage() => $_ensure(14);
+
+  @$pb.TagNumber(17)
+  ContinueWatchingList get continueWatching => $_getN(15);
+  @$pb.TagNumber(17)
+  set continueWatching(ContinueWatchingList value) => $_setField(17, value);
+  @$pb.TagNumber(17)
+  $core.bool hasContinueWatching() => $_has(15);
+  @$pb.TagNumber(17)
+  void clearContinueWatching() => $_clearField(17);
+  @$pb.TagNumber(17)
+  ContinueWatchingList ensureContinueWatching() => $_ensure(15);
+
+  @$pb.TagNumber(18)
+  Channel get channel => $_getN(16);
+  @$pb.TagNumber(18)
+  set channel(Channel value) => $_setField(18, value);
+  @$pb.TagNumber(18)
+  $core.bool hasChannel() => $_has(16);
+  @$pb.TagNumber(18)
+  void clearChannel() => $_clearField(18);
+  @$pb.TagNumber(18)
+  Channel ensureChannel() => $_ensure(16);
 }
 
 const $core.bool _omitFieldNames =

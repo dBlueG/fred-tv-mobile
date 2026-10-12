@@ -214,6 +214,7 @@ class _PlayerState extends State<Player> {
       TaskService.instance.setMoviePosition(
         widget.channel.id!,
         player.state.position.inSeconds,
+        player.state.duration.inSeconds,
       );
     }
     if (key.currentState!.isFullscreen()) {

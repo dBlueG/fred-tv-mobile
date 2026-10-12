@@ -18,6 +18,10 @@ class Settings {
   int seekSeconds;
   bool pictureInPicture;
   bool keepAudioAfterPip;
+  bool autoplayNextEpisode;
+  int autoplayCountdownSeconds;
+  // Home
+  bool showContinueWatching;
   Settings({
     this.defaultView = ViewType.all,
     this.defaultSort = SortType.provider,
@@ -33,9 +37,13 @@ class Settings {
     this.seekSeconds = 10,
     this.pictureInPicture = true,
     this.keepAudioAfterPip = false,
+    this.autoplayNextEpisode = true,
+    this.autoplayCountdownSeconds = 10,
+    this.showContinueWatching = true,
   });
 
   static const seekSecondsOptions = [10, 15, 30];
+  static const autoplayCountdownOptions = [5, 10, 15];
 
   List<MediaType> getMediaTypes() {
     return [

@@ -15,6 +15,7 @@ project (`Fredolx/fred-tv-mobile`).
 | 8 | [Building the Rust core on Windows](#8-building-the-rust-core-on-windows) | 2026-10-09 | Build setup |
 | 9 | [Faster Xtream refresh](#9-faster-xtream-refresh) | 2026-10-09 | Rust core |
 | 10 | [Player settings, channel switching, double-tap seek, sleep timer](#10-player-settings-channel-switching-double-tap-seek-sleep-timer) | 2026-10-12 | Android player, settings |
+| 11 | [Continue Watching, auto-play next episode, backup and restore](#11-continue-watching-auto-play-next-episode-backup-and-restore) | 2026-10-12 | Rust core, Flutter UI, Android player |
 
 Changes 1–4 and 6 only affect the Android app. iOS, macOS, Windows and Linux
 use `media_kit` for playback, so their players are unchanged. Change 7 is in the
@@ -446,9 +447,10 @@ CREATE INDEX index_favorite_list_channels_channel_id ON favorite_list_channels(c
 - `channels.favorite` still means "is a favorite", so existing favorites and
   the main view need no data changes.
 - List names are unique regardless of case (`COLLATE NOCASE`).
-- SQLite foreign keys are not enabled in this app (`PRAGMA foreign_keys` is never
-  set), so `ON DELETE CASCADE` never runs. List entries are therefore removed in
-  code whenever channels or lists are deleted.
+- The list tables have no foreign keys; list entries are removed in code whenever
+  channels or lists are deleted. (This originally said foreign keys weren't
+  enforced. They are: the bundled SQLite is built with
+  `SQLITE_DEFAULT_FOREIGN_KEYS=1`. See change 11.)
 
 ### Rust core (`src/`)
 
@@ -692,3 +694,126 @@ while the activity is stopped, i.e. lifecycle state `CREATED`), and forwards
   seek, but no channel switching or sleep timer.
 - Sleep timer firing after 15 minutes was not waited out on the emulator; the
   dialog, countdown and pause path were checked.
+
+---
+
+## 11. Continue Watching, auto-play next episode, backup and restore
+
+**Date:** 2026-10-12
+**Branch:** `player-and-home-features`
+**Status:** Rust tests pass; smoke-tested on the Android emulator against the mock
+Xtream server (resume, Continue Watching, episode countdown, export, restore on a
+fresh install). Not yet tested on the vivo.
+
+### Bug found on the way: watch positions were erased on every refresh
+
+The bundled SQLite (`rusqlite` with `bundled`) is compiled with
+`SQLITE_DEFAULT_FOREIGN_KEYS=1`, so foreign keys **are** enforced, contrary to the
+note in change 7. `movie_positions.channel_id` had `ON DELETE CASCADE`, and a
+source refresh deletes and re-creates all its channels. Every saved movie position
+was therefore deleted on refresh, and with "Refresh sources on start" on, resume
+never survived a restart. IDs are also reused after a wipe, so matching by channel
+ID would be wrong anyway.
+
+The fifth migration rebuilds `movie_positions` without the foreign key, and
+positions are now matched by **source, name and URL**:
+
+```sql
+CREATE TABLE movie_positions (id, channel_id, position, duration, updated_at,
+                              source_id, name, url);  -- no foreign key
+CREATE INDEX index_movie_positions_identity ON movie_positions(source_id, name);
+CREATE INDEX index_movie_positions_updated_at ON movie_positions(updated_at);
+```
+
+Existing positions are carried over (joined to their channel for the name and URL).
+`delete_source` now removes the source's positions. `channel_http_headers` still
+cascades, which is fine, since headers are re-imported with the channels.
+
+### Behavior
+
+**Continue Watching row** on the "All" screen (phone and TV), above the channel
+grid, while not searching. It shows up to 20 unfinished movies and episodes from
+enabled sources, newest first, with a progress bar and "N min left". Episodes also
+show the series name. Tap to resume. Long-press for **Play** / **Remove from
+Continue Watching**. The row updates after the player closes. Setting: **Show
+Continue Watching** (on).
+- Positions under 30 s are kept for resuming but not listed.
+- A movie counts as finished, and its position is dropped, within 60 s of the end
+  (5% for long videos, 10% for very short ones), so it starts over next time.
+- The duration is now saved with the position (native player and `media_kit`).
+
+**Auto-play next episode (Android player).** When an episode ends, a panel offers
+the next one, "Next episode in 10 s", with **Play now** and **Cancel**. Remote:
+left/right switch buttons, OK presses. The next episode is the following one by
+season number, then episode number, then name, so it crosses into the next season.
+It resumes from its saved position if there is one. Settings (Player section):
+**Auto-play next episode** (on), **Next episode countdown** (5/10/15 s, default 10).
+
+**Sleep timer: "End of episode" / "End of movie"** (not for livestreams). Playback
+stops when the current item ends, and auto-play is skipped. After the item ends,
+the screen is also allowed to turn off.
+
+**Backup and restore.** Settings → Backup:
+- **Export backup** saves `fred-tv-backup-YYYY-MM-DD.json` via the system save
+  dialog. It contains sources **including usernames and passwords**, all settings,
+  favorite list names, favorites and history (by channel name), and watch positions.
+  Channels themselves are not included; they're downloaded again.
+- **Restore backup** (with a confirmation) replaces the settings, adds any missing
+  favorite lists, and adds and downloads any source that doesn't exist yet (by
+  name). It then merges favorites, list membership, history and positions. It never
+  removes existing favorites or overwrites a newer position. Existing sources are
+  left as they are. A summary snackbar names any source that couldn't be
+  downloaded (e.g. a local M3U file path that doesn't exist on this device).
+- **First run:** the setup welcome screen has **Restore from a backup**, so a new
+  install can be restored without adding a source by hand first.
+
+### File changes
+
+**Rust (`src/`)**
+- `sql.rs`: fifth migration; `set_movie_position(channel_id, position, duration)`,
+  `remove_movie_position`, `get_movie_position` (identity match);
+  `get_continue_watching`; `get_next_episode` (row-value comparison over season,
+  episode and name); backup helpers (`get_backup_channels`, `get_backup_positions`,
+  `insert_backup_source`, `restore_backup_channels`, `restore_backup_positions`).
+- `backup.rs` (new): `export_backup` and `import_backup` (JSON, `app: "fred-tv"`,
+  `version: 1`).
+- `types.rs`: `ContinueWatching`, `Backup*` types, three settings fields.
+- `lib.rs`: FFI `remove_movie_position`, `get_continue_watching`,
+  `get_next_episode`, `export_backup`, `import_backup`.
+- `settings.rs`: `showContinueWatching`, `autoplayNextEpisode`,
+  `autoplayCountdownSeconds`.
+- Tests: DB tests now share one database through `test_db::lock()`. The new
+  `test_watch_progress` covers positions surviving a refresh (with shifted ids),
+  finished detection, Continue Watching, next-episode order across seasons, and a
+  backup round trip (export, wipe, restore with a failing download, restore again
+  once channels exist).
+
+**Proto:** `MoviePosition.duration`, `ContinueWatchingItem`,
+`ContinueWatchingList`, settings fields 15–17, and `FFIResult` `str_message`,
+`continue_watching`, `channel`. Bindings for the five new functions were added to
+`bindings.dart` by hand, as before. Android `.so` libraries rebuilt.
+
+**Flutter (`flutter/lib/`)**
+- `continue_watching_row.dart` (new), `models/continue_watching_item.dart` (new).
+- `playback.dart` (new): `openPlayer`, shared by channel tiles and the row.
+- `home.dart`: shows the row. `channel_tile.dart`: uses `openPlayer`.
+- `exo_player.dart`: tracks the current item (`_current`), saves position and
+  duration, and answers `nextEpisode` / `playNext`.
+- `models/channel.dart`: `seasonId` (→ `isEpisode`) and `tvArchive`, now mapped
+  from the proto.
+- `task_service.dart`: `watchProgressVersion`, `removeMoviePosition`,
+  `exportBackup`, `importBackup` (runs as the busy task "Restoring backup").
+- `settings_view.dart`: Show Continue Watching, the auto-play settings, and the
+  Backup section. `setup.dart`: Restore from a backup.
+
+**Android:** `ExoPlayerView.kt` adds the next-episode panel, countdown, D-pad
+handling for it, sleep-at-end, `getDuration`, and keeps the screen on only while
+playing (not after the end). Layout `next_episode_overlay`, drawables
+`bg_player_panel.xml` and `bg_player_button.xml`, and two strings.
+
+### Limitations
+
+- Episodes are deleted on refresh (as before) and only re-created when the series
+  is opened. Their positions are kept, but they're missing from Continue Watching
+  until then.
+- Backups contain provider passwords in plain text.

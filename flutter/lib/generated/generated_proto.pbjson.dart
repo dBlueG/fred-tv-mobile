@@ -393,6 +393,33 @@ const Settings$json = {
       '10': 'keepAudioAfterPip',
       '17': true
     },
+    {
+      '1': 'show_continue_watching',
+      '3': 15,
+      '4': 1,
+      '5': 8,
+      '9': 14,
+      '10': 'showContinueWatching',
+      '17': true
+    },
+    {
+      '1': 'autoplay_next_episode',
+      '3': 16,
+      '4': 1,
+      '5': 8,
+      '9': 15,
+      '10': 'autoplayNextEpisode',
+      '17': true
+    },
+    {
+      '1': 'autoplay_countdown_seconds',
+      '3': 17,
+      '4': 1,
+      '5': 13,
+      '9': 16,
+      '10': 'autoplayCountdownSeconds',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_use_stream_caching'},
@@ -409,6 +436,9 @@ const Settings$json = {
     {'1': '_seek_seconds'},
     {'1': '_picture_in_picture'},
     {'1': '_keep_audio_after_pip'},
+    {'1': '_show_continue_watching'},
+    {'1': '_autoplay_next_episode'},
+    {'1': '_autoplay_countdown_seconds'},
   ],
 };
 
@@ -426,12 +456,17 @@ final $typed_data.Uint8List settingsDescriptor = $convert.base64Decode(
     'gLIAEoCEgKUg1kb3VibGVUYXBTZWVriAEBEiYKDHNlZWtfc2Vjb25kcxgMIAEoDUgLUgtzZWVr'
     'U2Vjb25kc4gBARIxChJwaWN0dXJlX2luX3BpY3R1cmUYDSABKAhIDFIQcGljdHVyZUluUGljdH'
     'VyZYgBARI0ChRrZWVwX2F1ZGlvX2FmdGVyX3BpcBgOIAEoCEgNUhFrZWVwQXVkaW9BZnRlclBp'
-    'cIgBAUIVChNfdXNlX3N0cmVhbV9jYWNoaW5nQg8KDV9kZWZhdWx0X3ZpZXdCEwoRX3JlZnJlc2'
-    'hfb25fc3RhcnRCDwoNX2RlZmF1bHRfc29ydEIQCg5fZm9yY2VfdHZfbW9kZUITChFfc2hvd19s'
-    'aXZlc3RyZWFtc0IOCgxfc2hvd19tb3ZpZXNCDgoMX3Nob3dfc2VyaWVzQh0KG192b2x1bWVfYn'
-    'JpZ2h0bmVzc19nZXN0dXJlc0IaChhfc3dpcGVfdG9fY2hhbmdlX2NoYW5uZWxCEgoQX2RvdWJs'
-    'ZV90YXBfc2Vla0IPCg1fc2Vla19zZWNvbmRzQhUKE19waWN0dXJlX2luX3BpY3R1cmVCFwoVX2'
-    'tlZXBfYXVkaW9fYWZ0ZXJfcGlw');
+    'cIgBARI5ChZzaG93X2NvbnRpbnVlX3dhdGNoaW5nGA8gASgISA5SFHNob3dDb250aW51ZVdhdG'
+    'NoaW5niAEBEjcKFWF1dG9wbGF5X25leHRfZXBpc29kZRgQIAEoCEgPUhNhdXRvcGxheU5leHRF'
+    'cGlzb2RliAEBEkEKGmF1dG9wbGF5X2NvdW50ZG93bl9zZWNvbmRzGBEgASgNSBBSGGF1dG9wbG'
+    'F5Q291bnRkb3duU2Vjb25kc4gBAUIVChNfdXNlX3N0cmVhbV9jYWNoaW5nQg8KDV9kZWZhdWx0'
+    'X3ZpZXdCEwoRX3JlZnJlc2hfb25fc3RhcnRCDwoNX2RlZmF1bHRfc29ydEIQCg5fZm9yY2VfdH'
+    'ZfbW9kZUITChFfc2hvd19saXZlc3RyZWFtc0IOCgxfc2hvd19tb3ZpZXNCDgoMX3Nob3dfc2Vy'
+    'aWVzQh0KG192b2x1bWVfYnJpZ2h0bmVzc19nZXN0dXJlc0IaChhfc3dpcGVfdG9fY2hhbmdlX2'
+    'NoYW5uZWxCEgoQX2RvdWJsZV90YXBfc2Vla0IPCg1fc2Vla19zZWNvbmRzQhUKE19waWN0dXJl'
+    'X2luX3BpY3R1cmVCFwoVX2tlZXBfYXVkaW9fYWZ0ZXJfcGlwQhkKF19zaG93X2NvbnRpbnVlX3'
+    'dhdGNoaW5nQhgKFl9hdXRvcGxheV9uZXh0X2VwaXNvZGVCHQobX2F1dG9wbGF5X2NvdW50ZG93'
+    'bl9zZWNvbmRz');
 
 @$core.Deprecated('Use filtersDescriptor instead')
 const Filters$json = {
@@ -622,13 +657,91 @@ const MoviePosition$json = {
   '2': [
     {'1': 'channel_id', '3': 1, '4': 1, '5': 3, '10': 'channelId'},
     {'1': 'position', '3': 2, '4': 1, '5': 3, '10': 'position'},
+    {
+      '1': 'duration',
+      '3': 3,
+      '4': 1,
+      '5': 3,
+      '9': 0,
+      '10': 'duration',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_duration'},
   ],
 };
 
 /// Descriptor for `MoviePosition`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List moviePositionDescriptor = $convert.base64Decode(
     'Cg1Nb3ZpZVBvc2l0aW9uEh0KCmNoYW5uZWxfaWQYASABKANSCWNoYW5uZWxJZBIaCghwb3NpdG'
-    'lvbhgCIAEoA1IIcG9zaXRpb24=');
+    'lvbhgCIAEoA1IIcG9zaXRpb24SHwoIZHVyYXRpb24YAyABKANIAFIIZHVyYXRpb26IAQFCCwoJ'
+    'X2R1cmF0aW9u');
+
+@$core.Deprecated('Use continueWatchingItemDescriptor instead')
+const ContinueWatchingItem$json = {
+  '1': 'ContinueWatchingItem',
+  '2': [
+    {
+      '1': 'channel',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.generated_proto.Channel',
+      '10': 'channel'
+    },
+    {'1': 'position', '3': 2, '4': 1, '5': 3, '10': 'position'},
+    {
+      '1': 'duration',
+      '3': 3,
+      '4': 1,
+      '5': 3,
+      '9': 0,
+      '10': 'duration',
+      '17': true
+    },
+    {
+      '1': 'series_name',
+      '3': 4,
+      '4': 1,
+      '5': 9,
+      '9': 1,
+      '10': 'seriesName',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_duration'},
+    {'1': '_series_name'},
+  ],
+};
+
+/// Descriptor for `ContinueWatchingItem`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List continueWatchingItemDescriptor = $convert.base64Decode(
+    'ChRDb250aW51ZVdhdGNoaW5nSXRlbRIyCgdjaGFubmVsGAEgASgLMhguZ2VuZXJhdGVkX3Byb3'
+    'RvLkNoYW5uZWxSB2NoYW5uZWwSGgoIcG9zaXRpb24YAiABKANSCHBvc2l0aW9uEh8KCGR1cmF0'
+    'aW9uGAMgASgDSABSCGR1cmF0aW9uiAEBEiQKC3Nlcmllc19uYW1lGAQgASgJSAFSCnNlcmllc0'
+    '5hbWWIAQFCCwoJX2R1cmF0aW9uQg4KDF9zZXJpZXNfbmFtZQ==');
+
+@$core.Deprecated('Use continueWatchingListDescriptor instead')
+const ContinueWatchingList$json = {
+  '1': 'ContinueWatchingList',
+  '2': [
+    {
+      '1': 'items',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.generated_proto.ContinueWatchingItem',
+      '10': 'items'
+    },
+  ],
+};
+
+/// Descriptor for `ContinueWatchingList`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List continueWatchingListDescriptor = $convert.base64Decode(
+    'ChRDb250aW51ZVdhdGNoaW5nTGlzdBI7CgVpdGVtcxgBIAMoCzIlLmdlbmVyYXRlZF9wcm90by'
+    '5Db250aW51ZVdhdGNoaW5nSXRlbVIFaXRlbXM=');
 
 @$core.Deprecated('Use strMessageDescriptor instead')
 const StrMessage$json = {
@@ -1005,6 +1118,33 @@ const FFIResult$json = {
       '9': 0,
       '10': 'idList'
     },
+    {
+      '1': 'str_message',
+      '3': 16,
+      '4': 1,
+      '5': 11,
+      '6': '.generated_proto.StrMessage',
+      '9': 0,
+      '10': 'strMessage'
+    },
+    {
+      '1': 'continue_watching',
+      '3': 17,
+      '4': 1,
+      '5': 11,
+      '6': '.generated_proto.ContinueWatchingList',
+      '9': 0,
+      '10': 'continueWatching'
+    },
+    {
+      '1': 'channel',
+      '3': 18,
+      '4': 1,
+      '5': 11,
+      '6': '.generated_proto.Channel',
+      '9': 0,
+      '10': 'channel'
+    },
   ],
   '8': [
     {'1': 'data'},
@@ -1029,5 +1169,9 @@ final $typed_data.Uint8List fFIResultDescriptor = $convert.base64Decode(
     'cGlyaWVzSABSCGV4cGlyaWVzEkQKDWZhdm9yaXRlX2xpc3QYDSABKAsyHS5nZW5lcmF0ZWRfcH'
     'JvdG8uRmF2b3JpdGVMaXN0SABSDGZhdm9yaXRlTGlzdBJKCg5mYXZvcml0ZV9saXN0cxgOIAEo'
     'CzIhLmdlbmVyYXRlZF9wcm90by5GYXZvcml0ZUxpc3RMaXN0SABSDWZhdm9yaXRlTGlzdHMSMg'
-    'oHaWRfbGlzdBgPIAEoCzIXLmdlbmVyYXRlZF9wcm90by5JZExpc3RIAFIGaWRMaXN0QgYKBGRh'
-    'dGFCEAoOX2Vycm9yX21lc3NhZ2U=');
+    'oHaWRfbGlzdBgPIAEoCzIXLmdlbmVyYXRlZF9wcm90by5JZExpc3RIAFIGaWRMaXN0Ej4KC3N0'
+    'cl9tZXNzYWdlGBAgASgLMhsuZ2VuZXJhdGVkX3Byb3RvLlN0ck1lc3NhZ2VIAFIKc3RyTWVzc2'
+    'FnZRJUChFjb250aW51ZV93YXRjaGluZxgRIAEoCzIlLmdlbmVyYXRlZF9wcm90by5Db250aW51'
+    'ZVdhdGNoaW5nTGlzdEgAUhBjb250aW51ZVdhdGNoaW5nEjQKB2NoYW5uZWwYEiABKAsyGC5nZW'
+    '5lcmF0ZWRfcHJvdG8uQ2hhbm5lbEgAUgdjaGFubmVsQgYKBGRhdGFCEAoOX2Vycm9yX21lc3Nh'
+    'Z2U=');

@@ -73,6 +73,9 @@ pub struct Settings {
     pub seek_seconds: Option<u32>,
     pub picture_in_picture: Option<bool>,
     pub keep_audio_after_pip: Option<bool>,
+    pub show_continue_watching: Option<bool>,
+    pub autoplay_next_episode: Option<bool>,
+    pub autoplay_countdown_seconds: Option<u32>,
 }
 
 #[derive(Clone, PartialEq, Debug, Deserialize, Serialize)]
@@ -127,4 +130,60 @@ pub struct XtreamStatus {
 #[derive(Clone, PartialEq, Debug, Deserialize, Serialize)]
 pub struct XtreamStatusUserInfo {
     pub exp_date: serde_json::Value,
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub struct ContinueWatching {
+    pub channel: Channel,
+    pub position: i64,
+    pub duration: Option<i64>,
+    pub series_name: Option<String>,
+}
+
+#[derive(Clone, PartialEq, Debug, Deserialize, Serialize)]
+pub struct Backup {
+    pub app: String,
+    pub version: u32,
+    pub created_at: i64,
+    pub sources: Vec<BackupSource>,
+    #[serde(default)]
+    pub settings: std::collections::HashMap<String, String>,
+    #[serde(default)]
+    pub favorite_lists: Vec<String>,
+    #[serde(default)]
+    pub channels: Vec<BackupChannel>,
+    #[serde(default)]
+    pub positions: Vec<BackupPosition>,
+}
+
+#[derive(Clone, PartialEq, Debug, Deserialize, Serialize)]
+pub struct BackupSource {
+    pub name: String,
+    pub source_type: u8,
+    pub url: Option<String>,
+    pub username: Option<String>,
+    pub password: Option<String>,
+    pub user_agent: Option<String>,
+    pub stream_user_agent: Option<String>,
+    pub enabled: bool,
+}
+
+#[derive(Clone, PartialEq, Debug, Deserialize, Serialize)]
+pub struct BackupChannel {
+    pub source: String,
+    pub name: String,
+    pub favorite: bool,
+    pub last_watched: Option<i64>,
+    #[serde(default)]
+    pub lists: Vec<String>,
+}
+
+#[derive(Clone, PartialEq, Debug, Deserialize, Serialize)]
+pub struct BackupPosition {
+    pub source: String,
+    pub name: String,
+    pub url: Option<String>,
+    pub position: i64,
+    pub duration: Option<i64>,
+    pub updated_at: Option<i64>,
 }

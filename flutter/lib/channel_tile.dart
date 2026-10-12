@@ -11,10 +11,8 @@ import 'package:open_tv/models/media_type.dart';
 import 'package:open_tv/models/node.dart';
 import 'package:open_tv/models/node_type.dart';
 import 'package:open_tv/native_bridge.dart';
-import 'package:open_tv/player.dart';
-import 'package:open_tv/exo_player.dart';
+import 'package:open_tv/playback.dart';
 import 'package:open_tv/task_service.dart';
-import 'dart:io' show Platform;
 
 class ChannelTile extends StatefulWidget {
   final Channel channel;
@@ -265,23 +263,12 @@ class _ChannelTileState extends State<ChannelTile> {
         ),
       );
     } else {
-      var settings = await NativeBridge.instance.getSettings();
-      TaskService.instance.addLastWatched(widget.channel.id!);
       if (!mounted) return;
-      TaskService.instance.playerVisible.value = true;
-      await Navigator.push(
+      await openPlayer(
         context,
-        MaterialPageRoute(
-          builder: (_) => Platform.isAndroid
-              ? ExoPlayerScreen(
-                  channel: widget.channel,
-                  settings: settings,
-                  playlist: widget.playlist?.call(),
-                )
-              : Player(channel: widget.channel, settings: settings),
-        ),
+        widget.channel,
+        playlist: widget.playlist?.call(),
       );
-      TaskService.instance.playerVisible.value = false;
       if (mounted) _focusNode.requestFocus();
     }
   }

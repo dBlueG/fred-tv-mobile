@@ -18,6 +18,9 @@ pub const DOUBLE_TAP_SEEK: &str = "doubleTapSeek";
 pub const SEEK_SECONDS: &str = "seekSeconds";
 pub const PICTURE_IN_PICTURE: &str = "pictureInPicture";
 pub const KEEP_AUDIO_AFTER_PIP: &str = "keepAudioAfterPip";
+pub const SHOW_CONTINUE_WATCHING: &str = "showContinueWatching";
+pub const AUTOPLAY_NEXT_EPISODE: &str = "autoplayNextEpisode";
+pub const AUTOPLAY_COUNTDOWN_SECONDS: &str = "autoplayCountdownSeconds";
 
 pub fn get_settings() -> Result<Settings> {
     let map = sql::get_settings()?;
@@ -40,6 +43,11 @@ pub fn get_settings() -> Result<Settings> {
         seek_seconds: map.get(SEEK_SECONDS).and_then(|s| s.parse().ok()),
         picture_in_picture: map.get(PICTURE_IN_PICTURE).and_then(|s| s.parse().ok()),
         keep_audio_after_pip: map.get(KEEP_AUDIO_AFTER_PIP).and_then(|s| s.parse().ok()),
+        show_continue_watching: map.get(SHOW_CONTINUE_WATCHING).and_then(|s| s.parse().ok()),
+        autoplay_next_episode: map.get(AUTOPLAY_NEXT_EPISODE).and_then(|s| s.parse().ok()),
+        autoplay_countdown_seconds: map
+            .get(AUTOPLAY_COUNTDOWN_SECONDS)
+            .and_then(|s| s.parse().ok()),
     };
     Ok(settings)
 }
@@ -86,6 +94,13 @@ pub fn update_settings(settings: Settings) -> Result<()> {
     insert_opt(&mut map, SEEK_SECONDS, settings.seek_seconds);
     insert_opt(&mut map, PICTURE_IN_PICTURE, settings.picture_in_picture);
     insert_opt(&mut map, KEEP_AUDIO_AFTER_PIP, settings.keep_audio_after_pip);
+    insert_opt(&mut map, SHOW_CONTINUE_WATCHING, settings.show_continue_watching);
+    insert_opt(&mut map, AUTOPLAY_NEXT_EPISODE, settings.autoplay_next_episode);
+    insert_opt(
+        &mut map,
+        AUTOPLAY_COUNTDOWN_SECONDS,
+        settings.autoplay_countdown_seconds,
+    );
     sql::update_settings(map)?;
     Ok(())
 }

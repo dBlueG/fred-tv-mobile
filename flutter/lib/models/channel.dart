@@ -12,6 +12,9 @@ class Channel {
   bool favorite;
   int? seriesId;
   int? streamId;
+  // Set for series episodes.
+  int? seasonId;
+  bool tvArchive;
 
   Channel({
     this.id,
@@ -25,5 +28,9 @@ class Channel {
     required this.favorite,
     this.seriesId,
     this.streamId,
+    this.seasonId,
+    this.tvArchive = false,
   });
+
+  bool get isEpisode => seasonId != null;
 }

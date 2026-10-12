@@ -4,6 +4,7 @@ use crate::c::FfiCallback;
 use crate::generated_proto::ToggleFavorite;
 use anyhow::Ok;
 
+mod backup;
 mod c;
 mod generated_proto;
 mod log;
@@ -35,6 +36,9 @@ impl From<crate::types::Settings> for crate::generated_proto::Settings {
             seek_seconds: settings.seek_seconds,
             picture_in_picture: settings.picture_in_picture,
             keep_audio_after_pip: settings.keep_audio_after_pip,
+            show_continue_watching: settings.show_continue_watching,
+            autoplay_next_episode: settings.autoplay_next_episode,
+            autoplay_countdown_seconds: settings.autoplay_countdown_seconds,
         }
     }
 }
@@ -56,6 +60,9 @@ impl From<crate::generated_proto::Settings> for crate::types::Settings {
             seek_seconds: settings.seek_seconds,
             picture_in_picture: settings.picture_in_picture,
             keep_audio_after_pip: settings.keep_audio_after_pip,
+            show_continue_watching: settings.show_continue_watching,
+            autoplay_next_episode: settings.autoplay_next_episode,
+            autoplay_countdown_seconds: settings.autoplay_countdown_seconds,
         }
     }
 }
@@ -156,6 +163,17 @@ impl From<Vec<crate::types::Channel>> for crate::generated_proto::ChannelList {
     fn from(channels: Vec<crate::types::Channel>) -> Self {
         crate::generated_proto::ChannelList {
             channels: channels.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+impl From<crate::types::ContinueWatching> for crate::generated_proto::ContinueWatchingItem {
+    fn from(item: crate::types::ContinueWatching) -> Self {
+        crate::generated_proto::ContinueWatchingItem {
+            channel: Some(item.channel.into()),
+            position: item.position,
+            duration: item.duration,
+            series_name: item.series_name,
         }
     }
 }
@@ -413,7 +431,84 @@ pub extern "C" fn set_movie_position(
         ptr,
         len,
         |position: generated_proto::MoviePosition| {
-            sql::set_movie_position(position.channel_id, position.position)
+            sql::set_movie_position(position.channel_id, position.position, position.duration)
+        },
+    )
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn remove_movie_position(
+    task_id: u64,
+    callback: FfiCallback,
+    ptr: *const u8,
+    len: usize,
+) {
+    c::queue_blocking_with_message(
+        task_id,
+        callback,
+        ptr,
+        len,
+        |id: generated_proto::IdMessage| sql::remove_movie_position(id.value),
+    )
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn get_continue_watching(task_id: u64, callback: FfiCallback) {
+    c::queue_blocking(task_id, callback, || {
+        Ok(generated_proto::ffi_result::Data::ContinueWatching(
+            generated_proto::ContinueWatchingList {
+                items: sql::get_continue_watching()?
+                    .into_iter()
+                    .map(Into::into)
+                    .collect(),
+            },
+        ))
+    })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn get_next_episode(
+    task_id: u64,
+    callback: FfiCallback,
+    ptr: *const u8,
+    len: usize,
+) {
+    c::queue_blocking_with_message(
+        task_id,
+        callback,
+        ptr,
+        len,
+        |id: generated_proto::IdMessage| {
+            Ok(sql::get_next_episode(id.value)?
+                .map(|c| generated_proto::ffi_result::Data::Channel(c.into())))
+        },
+    )
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn export_backup(task_id: u64, callback: FfiCallback) {
+    c::queue_blocking(task_id, callback, || {
+        Ok(generated_proto::ffi_result::Data::StrMessage(
+            generated_proto::StrMessage {
+                value: backup::export_backup()?,
+            },
+        ))
+    })
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn import_backup(task_id: u64, callback: FfiCallback, ptr: *const u8, len: usize) {
+    c::queue_async_with_message(
+        task_id,
+        callback,
+        ptr,
+        len,
+        |json: generated_proto::StrMessage| async move {
+            Ok(generated_proto::ffi_result::Data::StrMessage(
+                generated_proto::StrMessage {
+                    value: backup::import_backup(json.value).await?,
+                },
+            ))
         },
     )
 }

@@ -1848,6 +1848,103 @@ class RustLibBindings {
         void Function(int, FfiCallback, ffi.Pointer<ffi.Uint8>, int)
       >();
 
+  void remove_movie_position(
+    int task_id,
+    FfiCallback callback,
+    ffi.Pointer<ffi.Uint8> ptr,
+    int len,
+  ) {
+    return _remove_movie_position(task_id, callback, ptr, len);
+  }
+
+  late final _remove_movie_positionPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Uint64,
+            FfiCallback,
+            ffi.Pointer<ffi.Uint8>,
+            ffi.Size,
+          )
+        >
+      >('remove_movie_position');
+  late final _remove_movie_position = _remove_movie_positionPtr
+      .asFunction<
+        void Function(int, FfiCallback, ffi.Pointer<ffi.Uint8>, int)
+      >();
+
+  void get_continue_watching(int task_id, FfiCallback callback) {
+    return _get_continue_watching(task_id, callback);
+  }
+
+  late final _get_continue_watchingPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Uint64, FfiCallback)>>(
+        'get_continue_watching',
+      );
+  late final _get_continue_watching = _get_continue_watchingPtr
+      .asFunction<void Function(int, FfiCallback)>();
+
+  void get_next_episode(
+    int task_id,
+    FfiCallback callback,
+    ffi.Pointer<ffi.Uint8> ptr,
+    int len,
+  ) {
+    return _get_next_episode(task_id, callback, ptr, len);
+  }
+
+  late final _get_next_episodePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Uint64,
+            FfiCallback,
+            ffi.Pointer<ffi.Uint8>,
+            ffi.Size,
+          )
+        >
+      >('get_next_episode');
+  late final _get_next_episode = _get_next_episodePtr
+      .asFunction<
+        void Function(int, FfiCallback, ffi.Pointer<ffi.Uint8>, int)
+      >();
+
+  void export_backup(int task_id, FfiCallback callback) {
+    return _export_backup(task_id, callback);
+  }
+
+  late final _export_backupPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Uint64, FfiCallback)>>(
+        'export_backup',
+      );
+  late final _export_backup = _export_backupPtr
+      .asFunction<void Function(int, FfiCallback)>();
+
+  void import_backup(
+    int task_id,
+    FfiCallback callback,
+    ffi.Pointer<ffi.Uint8> ptr,
+    int len,
+  ) {
+    return _import_backup(task_id, callback, ptr, len);
+  }
+
+  late final _import_backupPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Uint64,
+            FfiCallback,
+            ffi.Pointer<ffi.Uint8>,
+            ffi.Size,
+          )
+        >
+      >('import_backup');
+  late final _import_backup = _import_backupPtr
+      .asFunction<
+        void Function(int, FfiCallback, ffi.Pointer<ffi.Uint8>, int)
+      >();
+
   void free_message(ffi.Pointer<ffi.Uint8> ptr, int len) {
     return _free_message(ptr, len);
   }

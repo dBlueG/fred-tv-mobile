@@ -91,6 +91,12 @@ pub struct Settings {
     pub picture_in_picture: ::core::option::Option<bool>,
     #[prost(bool, optional, tag = "14")]
     pub keep_audio_after_pip: ::core::option::Option<bool>,
+    #[prost(bool, optional, tag = "15")]
+    pub show_continue_watching: ::core::option::Option<bool>,
+    #[prost(bool, optional, tag = "16")]
+    pub autoplay_next_episode: ::core::option::Option<bool>,
+    #[prost(uint32, optional, tag = "17")]
+    pub autoplay_countdown_seconds: ::core::option::Option<u32>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct Filters {
@@ -168,6 +174,24 @@ pub struct MoviePosition {
     pub channel_id: i64,
     #[prost(int64, tag = "2")]
     pub position: i64,
+    #[prost(int64, optional, tag = "3")]
+    pub duration: ::core::option::Option<i64>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ContinueWatchingItem {
+    #[prost(message, optional, tag = "1")]
+    pub channel: ::core::option::Option<Channel>,
+    #[prost(int64, tag = "2")]
+    pub position: i64,
+    #[prost(int64, optional, tag = "3")]
+    pub duration: ::core::option::Option<i64>,
+    #[prost(string, optional, tag = "4")]
+    pub series_name: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ContinueWatchingList {
+    #[prost(message, repeated, tag = "1")]
+    pub items: ::prost::alloc::vec::Vec<ContinueWatchingItem>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct StrMessage {
@@ -248,7 +272,7 @@ pub struct FfiResult {
     pub success: bool,
     #[prost(string, optional, tag = "2")]
     pub error_message: ::core::option::Option<::prost::alloc::string::String>,
-    #[prost(oneof = "ffi_result::Data", tags = "3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15")]
+    #[prost(oneof = "ffi_result::Data", tags = "3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18")]
     pub data: ::core::option::Option<ffi_result::Data>,
 }
 /// Nested message and enum types in `FFIResult`.
@@ -279,6 +303,12 @@ pub mod ffi_result {
         FavoriteLists(super::FavoriteListList),
         #[prost(message, tag = "15")]
         IdList(super::IdList),
+        #[prost(message, tag = "16")]
+        StrMessage(super::StrMessage),
+        #[prost(message, tag = "17")]
+        ContinueWatching(super::ContinueWatchingList),
+        #[prost(message, tag = "18")]
+        Channel(super::Channel),
     }
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
