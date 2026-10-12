@@ -272,6 +272,7 @@ fn get_channel_from_lines(first: String, mut second: String, source_id: i64) -> 
         tv_archive: None,
         season_id: None,
         episode_num: None,
+        locked: false,
     };
     Ok(channel)
 }

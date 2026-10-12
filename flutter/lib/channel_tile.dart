@@ -5,6 +5,10 @@ import 'package:flutter/services.dart';
 import 'package:open_tv/memory.dart';
 import 'package:open_tv/models/channel.dart';
 import 'package:open_tv/models/channel_playlist.dart';
+import 'package:open_tv/models/epg.dart';
+import 'package:open_tv/models/id_data.dart';
+import 'package:open_tv/catchup_view.dart';
+import 'package:open_tv/select_dialog.dart';
 import 'package:open_tv/error.dart';
 import 'package:open_tv/favorite_lists_dialog.dart';
 import 'package:open_tv/models/media_type.dart';
@@ -23,6 +27,8 @@ class ChannelTile extends StatefulWidget {
   final VoidCallback? onFavoriteChanged;
   // Builds the list the player can switch channels in (livestreams only).
   final ChannelPlaylist? Function()? playlist;
+  // Now/next programme for Xtream livestreams.
+  final EpgNowNext? epg;
   final bool autofocus;
   const ChannelTile({
     super.key,
@@ -33,6 +39,7 @@ class ChannelTile extends StatefulWidget {
     this.onFocusNavbar,
     this.onFavoriteChanged,
     this.playlist,
+    this.epg,
     this.autofocus = false,
   });
 
@@ -125,7 +132,7 @@ class _ChannelTileState extends State<ChannelTile> {
           _longPressTriggered = true;
           _confirmSplash();
           _statesController.update(WidgetState.pressed, false);
-          favorite();
+          longPress();
         });
       } else if (event is KeyUpEvent) {
         if (!_selectKeyDown) {
@@ -153,6 +160,41 @@ class _ChannelTileState extends State<ChannelTile> {
     _statesController.dispose();
     _focusNode.dispose();
     super.dispose();
+  }
+
+  bool get _hasCatchup =>
+      widget.channel.tvArchive &&
+      widget.channel.mediaType == MediaType.livestream;
+
+  // Channels with an archive offer catch-up next to favoriting.
+  Future<void> longPress() async {
+    if (!_hasCatchup) return favorite();
+    await showDialog(
+      context: context,
+      builder: (context) => SelectDialog(
+        title: widget.channel.name,
+        data: [
+          IdData(id: 0, data: "Favorites", icon: Icons.star),
+          IdData(id: 1, data: "Catch-up", icon: Icons.history),
+        ],
+        action: (id) {
+          Navigator.of(context).pop();
+          if (id == 0) {
+            favorite();
+          } else {
+            openCatchup();
+          }
+        },
+      ),
+    );
+  }
+
+  Future<void> openCatchup() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => CatchupView(channel: widget.channel)),
+    );
+    if (mounted) _focusNode.requestFocus();
   }
 
   // Toggles the favorite directly while no lists exist, otherwise lets the
@@ -273,6 +315,43 @@ class _ChannelTileState extends State<ChannelTile> {
     }
   }
 
+  bool get _hasEpg => widget.epg != null && !widget.epg!.isEmpty;
+
+  List<Widget> _epgLines(BuildContext context) {
+    final theme = Theme.of(context);
+    final style = theme.textTheme.bodySmall?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    );
+    final now = widget.epg!.now;
+    final next = widget.epg!.next;
+    final time = DateTime.now();
+    return [
+      if (now != null) ...[
+        const SizedBox(height: 2),
+        Text(
+          "${formatClock(now.startTime)}  ${now.title}",
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: style?.copyWith(color: theme.colorScheme.onSurface),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 3),
+          child: LinearProgressIndicator(
+            value: now.progressAt(time),
+            minHeight: 2,
+          ),
+        ),
+      ],
+      if (next != null)
+        Text(
+          "${formatClock(next.startTime)}  ${next.title}",
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: style,
+        ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     return Card(
@@ -287,7 +366,7 @@ class _ChannelTileState extends State<ChannelTile> {
             autofocus: widget.autofocus,
             statesController: _statesController,
             borderRadius: BorderRadius.circular(12),
-            onLongPress: favorite,
+            onLongPress: longPress,
             onTap: play,
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -317,23 +396,40 @@ class _ChannelTileState extends State<ChannelTile> {
                   flex: 3,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        widget.channel.name,
-                        textAlign: TextAlign.left,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: Theme.of(
-                            context,
-                          ).textTheme.titleMedium?.fontSize!,
-                          fontWeight: FontWeight.w600,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.channel.name,
+                          textAlign: TextAlign.left,
+                          maxLines: _hasEpg ? 1 : 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: Theme.of(
+                              context,
+                            ).textTheme.titleMedium?.fontSize!,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                      ),
+                        if (_hasEpg) ..._epgLines(context),
+                      ],
                     ),
                   ),
                 ),
+                if (_hasCatchup)
+                  Padding(
+                    padding: EdgeInsets.only(
+                      right: widget.channel.favorite ? 0 : 8.0,
+                    ),
+                    child: const Center(
+                      child: Icon(
+                        Icons.history,
+                        size: 20,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ),
                 if (widget.channel.favorite)
                   const Padding(
                     padding: EdgeInsets.only(right: 8.0),

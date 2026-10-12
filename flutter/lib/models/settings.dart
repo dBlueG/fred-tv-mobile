@@ -22,6 +22,8 @@ class Settings {
   int autoplayCountdownSeconds;
   // Home
   bool showContinueWatching;
+  bool showEpg;
+  String? parentalPin;
   Settings({
     this.defaultView = ViewType.all,
     this.defaultSort = SortType.provider,
@@ -40,6 +42,8 @@ class Settings {
     this.autoplayNextEpisode = true,
     this.autoplayCountdownSeconds = 10,
     this.showContinueWatching = true,
+    this.showEpg = true,
+    this.parentalPin,
   });
 
   static const seekSecondsOptions = [10, 15, 30];

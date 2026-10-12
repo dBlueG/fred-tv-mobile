@@ -13,6 +13,8 @@ import 'package:open_tv/models/filters.dart';
 import 'package:open_tv/select_dialog.dart';
 import 'package:open_tv/edit_dialog.dart';
 import 'package:open_tv/home.dart';
+import 'package:open_tv/locked_categories_view.dart';
+import 'package:open_tv/parental.dart';
 import 'package:open_tv/loading.dart';
 import 'package:open_tv/models/home_manager.dart';
 import 'package:open_tv/models/id_data.dart';
@@ -247,6 +249,107 @@ class _SettingsState extends State<SettingsView> {
     await initAsync();
   }
 
+  Future<void> setPin() async {
+    final pin = await ParentalControl.askNewPin(context);
+    if (pin == null) return;
+    setState(() => settings.parentalPin = pin);
+    await updateSettings();
+    ParentalControl.setPin(pin);
+    if (mounted) setState(() {});
+    Error.showMessage("PIN set. Choose what to lock below");
+  }
+
+  Future<void> changePin() async {
+    if (!await ParentalControl.verify(context) || !mounted) return;
+    await setPin();
+  }
+
+  Future<void> removePin() async {
+    if (!await ParentalControl.verify(context)) return;
+    setState(() => settings.parentalPin = null);
+    await updateSettings();
+    ParentalControl.setPin(null);
+    if (mounted) setState(() {});
+    Error.showMessage("PIN removed; locked content is visible again");
+  }
+
+  Future<void> openLockedCategories() async {
+    if (!await ParentalControl.unlock(context) || !mounted) return;
+    setState(() {});
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const LockedCategoriesView()),
+    );
+  }
+
+  Future<void> toggleLockedContent() async {
+    if (ParentalControl.unlocked) {
+      ParentalControl.lock();
+      Error.showMessage("Locked content is hidden");
+    } else if (!await ParentalControl.unlock(context)) {
+      return;
+    }
+    if (mounted) setState(() {});
+  }
+
+  Future<void> toggleSourceLock(Source source) async {
+    if (!await ParentalControl.unlock(context)) return;
+    await Error.tryAsyncNoLoading(
+      () => NativeBridge.instance.setSourceLocked(source.id!, !source.locked),
+    );
+    await reloadSources();
+  }
+
+  List<Widget> _parentalSettings() {
+    if (!ParentalControl.hasPin) {
+      return [
+        const Divider(),
+        _sectionTitle("Parental control"),
+        ListTile(
+          title: const Text("Set PIN"),
+          subtitle: const Text("Hide chosen categories and sources behind a PIN"),
+          leading: const Icon(Icons.lock_outline),
+          onTap: setPin,
+        ),
+      ];
+    }
+    final unlocked = ParentalControl.unlocked;
+    return [
+      const Divider(),
+      _sectionTitle("Parental control"),
+      ListTile(
+        title: Text(unlocked ? "Lock now" : "Show locked content"),
+        subtitle: Text(
+          unlocked
+              ? "Locked content is visible until the app restarts"
+              : "Locked categories and sources are hidden",
+        ),
+        leading: Icon(unlocked ? Icons.lock_open : Icons.lock),
+        onTap: toggleLockedContent,
+      ),
+      ListTile(
+        title: const Text("Locked categories"),
+        leading: const Icon(Icons.category),
+        onTap: openLockedCategories,
+      ),
+      const ListTile(
+        title: Text("Locked sources"),
+        subtitle: Text("Tap a source below and choose Lock"),
+        leading: Icon(Icons.tv_off),
+      ),
+      ListTile(
+        title: const Text("Change PIN"),
+        leading: const Icon(Icons.password),
+        onTap: changePin,
+      ),
+      ListTile(
+        title: const Text("Remove PIN"),
+        leading: const Icon(Icons.no_encryption_outlined),
+        onTap: removePin,
+      ),
+    ];
+  }
+
   List<Widget> _backupSettings() {
     return [
       const Divider(),
@@ -389,7 +492,13 @@ class _SettingsState extends State<SettingsView> {
         margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         elevation: 5,
         child: ListTile(
-          leading: Icon(source.enabled ? Icons.tv : Icons.tv_off),
+          leading: Icon(
+            source.locked && ParentalControl.hasPin
+                ? Icons.lock
+                : source.enabled
+                ? Icons.tv
+                : Icons.tv_off,
+          ),
           horizontalTitleGap: 25,
           contentPadding: const EdgeInsets.symmetric(horizontal: 20),
           title: Text(source.name),
@@ -441,6 +550,12 @@ class _SettingsState extends State<SettingsView> {
         IdData(id: 1, data: "Refresh", icon: Icons.refresh),
       if (!widget.tvMode) IdData(id: 2, data: "Edit", icon: Icons.edit),
       IdData(id: 3, data: "Delete", icon: Icons.delete),
+      if (ParentalControl.hasPin)
+        IdData(
+          id: 4,
+          data: source.locked ? "Unlock" : "Lock",
+          icon: source.locked ? Icons.lock_open : Icons.lock,
+        ),
     ];
     final name = source.name.length > 20
         ? "${source.name.substring(0, 20)}…"
@@ -462,6 +577,8 @@ class _SettingsState extends State<SettingsView> {
               showEditDialog(context, source);
             case 3:
               showConfirmDeleteDialog(source);
+            case 4:
+              toggleSourceLock(source);
           }
         },
       ),
@@ -621,6 +738,12 @@ class _SettingsState extends State<SettingsView> {
                           ),
                         ),
                         _switchTile(
+                          title: "Show programme info",
+                          subtitle: "Now and next on Xtream livestreams",
+                          value: settings.showEpg,
+                          onChanged: (v) => settings.showEpg = v,
+                        ),
+                        _switchTile(
                           title: "Show Continue Watching",
                           subtitle: "Unfinished movies and episodes on the home screen",
                           value: settings.showContinueWatching,
@@ -681,6 +804,7 @@ class _SettingsState extends State<SettingsView> {
                             ),
                           ),
                         ..._playerSettings(),
+                        ..._parentalSettings(),
                         ..._backupSettings(),
                         const Divider(),
                         Row(

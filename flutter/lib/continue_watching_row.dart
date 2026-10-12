@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:open_tv/error.dart';
 import 'package:open_tv/models/continue_watching_item.dart';
 import 'package:open_tv/native_bridge.dart';
+import 'package:open_tv/parental.dart';
 import 'package:open_tv/playback.dart';
 import 'package:open_tv/select_dialog.dart';
 import 'package:open_tv/models/id_data.dart';
@@ -43,7 +44,9 @@ class _ContinueWatchingRowState extends State<ContinueWatchingRow> {
     final result = await Error.tryAsyncNoLoading(() async {
       final settings = await NativeBridge.instance.getSettings();
       if (!settings.showContinueWatching) return <ContinueWatchingItem>[];
-      return NativeBridge.instance.getContinueWatching();
+      return NativeBridge.instance.getContinueWatching(
+        ParentalControl.unlocked,
+      );
     });
     if (!mounted || result.data == null) return;
     setState(() => items = result.data!);

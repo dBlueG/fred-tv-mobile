@@ -30,6 +30,9 @@ pub struct Channel {
     pub season_id: ::core::option::Option<i64>,
     #[prost(int64, optional, tag = "14")]
     pub episode_num: ::core::option::Option<i64>,
+    /// Categories and sources hidden by the parental PIN
+    #[prost(bool, tag = "15")]
+    pub locked: bool,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ChannelList {
@@ -60,8 +63,10 @@ pub struct Source {
     pub stream_user_agent: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(int64, optional, tag = "13")]
     pub last_updated: ::core::option::Option<i64>,
+    #[prost(bool, tag = "14")]
+    pub locked: bool,
 }
-#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct Settings {
     #[prost(bool, optional, tag = "1")]
     pub use_stream_caching: ::core::option::Option<bool>,
@@ -97,6 +102,10 @@ pub struct Settings {
     pub autoplay_next_episode: ::core::option::Option<bool>,
     #[prost(uint32, optional, tag = "17")]
     pub autoplay_countdown_seconds: ::core::option::Option<u32>,
+    #[prost(bool, optional, tag = "18")]
+    pub show_epg: ::core::option::Option<bool>,
+    #[prost(string, optional, tag = "19")]
+    pub parental_pin: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct Filters {
@@ -122,6 +131,8 @@ pub struct Filters {
     pub season: ::core::option::Option<i64>,
     #[prost(int64, optional, tag = "11")]
     pub favorite_list_id: ::core::option::Option<i64>,
+    #[prost(bool, tag = "12")]
+    pub include_locked: bool,
 }
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ToggleFavorite {
@@ -187,6 +198,47 @@ pub struct ContinueWatchingItem {
     pub duration: ::core::option::Option<i64>,
     #[prost(string, optional, tag = "4")]
     pub series_name: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct EpgProgram {
+    #[prost(string, tag = "1")]
+    pub title: ::prost::alloc::string::String,
+    #[prost(string, optional, tag = "2")]
+    pub description: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(int64, tag = "3")]
+    pub start: i64,
+    #[prost(int64, tag = "4")]
+    pub stop: i64,
+    #[prost(bool, tag = "5")]
+    pub has_archive: bool,
+    #[prost(string, optional, tag = "6")]
+    pub catchup_url: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct EpgNowNext {
+    #[prost(int64, tag = "1")]
+    pub channel_id: i64,
+    #[prost(message, optional, tag = "2")]
+    pub now: ::core::option::Option<EpgProgram>,
+    #[prost(message, optional, tag = "3")]
+    pub next: ::core::option::Option<EpgProgram>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct EpgNowNextList {
+    #[prost(message, repeated, tag = "1")]
+    pub items: ::prost::alloc::vec::Vec<EpgNowNext>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct EpgProgramList {
+    #[prost(message, repeated, tag = "1")]
+    pub programs: ::prost::alloc::vec::Vec<EpgProgram>,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct SetLocked {
+    #[prost(int64, tag = "1")]
+    pub id: i64,
+    #[prost(bool, tag = "2")]
+    pub locked: bool,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ContinueWatchingList {
@@ -272,7 +324,7 @@ pub struct FfiResult {
     pub success: bool,
     #[prost(string, optional, tag = "2")]
     pub error_message: ::core::option::Option<::prost::alloc::string::String>,
-    #[prost(oneof = "ffi_result::Data", tags = "3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18")]
+    #[prost(oneof = "ffi_result::Data", tags = "3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20")]
     pub data: ::core::option::Option<ffi_result::Data>,
 }
 /// Nested message and enum types in `FFIResult`.
@@ -309,6 +361,10 @@ pub mod ffi_result {
         ContinueWatching(super::ContinueWatchingList),
         #[prost(message, tag = "18")]
         Channel(super::Channel),
+        #[prost(message, tag = "19")]
+        EpgNowNext(super::EpgNowNextList),
+        #[prost(message, tag = "20")]
+        EpgPrograms(super::EpgProgramList),
     }
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]

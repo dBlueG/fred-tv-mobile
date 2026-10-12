@@ -2,6 +2,8 @@ import 'package:fixnum/fixnum.dart';
 import 'package:open_tv/generated/generated_proto.pb.dart' as pb;
 import 'package:open_tv/models/channel.dart';
 import 'package:open_tv/models/continue_watching_item.dart';
+import 'package:open_tv/models/epg.dart';
+import 'package:open_tv/parental.dart';
 import 'package:open_tv/models/favorite_list.dart';
 import 'package:open_tv/models/source.dart';
 import 'package:open_tv/models/filters.dart';
@@ -27,6 +29,26 @@ extension ChannelProtoExtension on pb.Channel {
     streamId: hasStreamId() ? streamId.toInt() : null,
     seasonId: hasSeasonId() ? seasonId.toInt() : null,
     tvArchive: hasTvArchive() && tvArchive,
+    locked: locked,
+  );
+}
+
+extension EpgProgramProtoExtension on pb.EpgProgram {
+  EpgProgram toDomain() => EpgProgram(
+    title: title,
+    description: hasDescription() ? description : null,
+    start: start.toInt(),
+    stop: stop.toInt(),
+    hasArchive: hasArchive,
+    catchupUrl: hasCatchupUrl() ? catchupUrl : null,
+  );
+}
+
+extension EpgNowNextProtoExtension on pb.EpgNowNext {
+  EpgNowNext toDomain() => EpgNowNext(
+    channelId: channelId.toInt(),
+    now: hasNow() ? now.toDomain() : null,
+    next: hasNext() ? next.toDomain() : null,
   );
 }
 
@@ -50,6 +72,7 @@ extension SourceProtoExtension on pb.Source {
     sourceType: SourceType.values[sourceType],
     lastUpdated: hasLastUpdated() ? lastUpdated.toInt() : null,
     enabled: enabled,
+    locked: locked,
   );
 }
 
@@ -63,6 +86,7 @@ extension SourceDomainExtension on Source {
     password: password,
     sourceType: sourceType.index,
     enabled: enabled,
+    locked: locked,
   );
 }
 
@@ -79,6 +103,7 @@ extension FiltersDomainExtension on Filters {
     favoriteListId: favoriteListId != null ? Int64(favoriteListId!) : null,
     useKeywords: useKeywords,
     sort: sort?.index ?? SortType.provider.index,
+    includeLocked: ParentalControl.unlocked,
   );
 }
 
@@ -111,6 +136,10 @@ extension SettingsProtoExtension on pb.Settings {
     autoplayCountdownSeconds: hasAutoplayCountdownSeconds()
         ? autoplayCountdownSeconds
         : 10,
+    showEpg: hasShowEpg() ? showEpg : true,
+    parentalPin: hasParentalPin() && parentalPin.isNotEmpty
+        ? parentalPin
+        : null,
   );
 }
 
@@ -133,6 +162,9 @@ extension SettingsDomainExtension on Settings {
     showContinueWatching: showContinueWatching,
     autoplayNextEpisode: autoplayNextEpisode,
     autoplayCountdownSeconds: autoplayCountdownSeconds,
+    showEpg: showEpg,
+    // An empty PIN removes it.
+    parentalPin: parentalPin ?? "",
   );
 }
 

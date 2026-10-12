@@ -231,6 +231,18 @@ ALTER TABLE movie_positions_new RENAME TO movie_positions;
 CREATE INDEX index_movie_positions_identity ON movie_positions(source_id, name);
 CREATE INDEX index_movie_positions_updated_at ON movie_positions(updated_at);
 "#,
+    ),
+    // Parental PIN: categories are locked by name, so locks survive a refresh.
+    M::up(
+        r#"
+CREATE TABLE "locked_groups" (
+  "source_id" integer NOT NULL,
+  "name"      varchar(100) NOT NULL,
+  PRIMARY KEY (source_id, name)
+);
+
+ALTER TABLE sources ADD COLUMN locked integer DEFAULT 0;
+"#,
     )]);
     migrations.to_latest(&mut sql)?;
     Ok(())
@@ -494,6 +506,9 @@ pub fn search(filters: Filters) -> Result<Vec<Channel>> {
         generate_placeholders(media_types.len()),
         generate_placeholders(filters.source_ids.len()),
     );
+    if !filters.include_locked {
+        sql_query += &unlocked_channels_sql("");
+    }
     let mut baked_params = 2;
     let favorite_list_id = match filters.view_type == view_type::FAVORITES
         && filters.series_id.is_none()
@@ -619,6 +634,7 @@ fn season_row_to_channel(row: &Row) -> std::result::Result<Channel, rusqlite::Er
         tv_archive: None,
         url: None,
         episode_num: None,
+        locked: false,
     })
 }
 
@@ -658,6 +674,20 @@ pub fn series_has_episodes(series_id: i64, source_id: i64) -> Result<bool> {
     Ok(series_exists)
 }
 
+// Excludes channels of locked sources and locked categories. `alias` is the
+// channels table alias including the dot (e.g. "c."), or "".
+fn unlocked_channels_sql(alias: &str) -> String {
+    format!(
+        r#"
+        AND {alias}source_id NOT IN (SELECT id FROM sources WHERE locked = 1)
+        AND ({alias}group_id IS NULL OR {alias}group_id NOT IN (
+          SELECT g.id FROM groups g
+          JOIN locked_groups lg ON lg.source_id = g.source_id AND lg.name = g.name))"#
+    )
+}
+
+const GROUP_LOCKED_SQL: &str = "EXISTS (SELECT 1 FROM locked_groups lg WHERE lg.source_id = groups.source_id AND lg.name = groups.name)";
+
 pub fn search_group(filters: Filters) -> Result<Vec<Channel>> {
     let sql = get_conn()?;
     let offset: u16 = filters.page as u16 * PAGE_SIZE as u16 - PAGE_SIZE as u16;
@@ -673,7 +703,7 @@ pub fn search_group(filters: Filters) -> Result<Vec<Channel>> {
     let mut params: Vec<&dyn rusqlite::ToSql> = Vec::with_capacity(2 + filters.source_ids.len());
     let mut sql_query = format!(
         r#"
-        SELECT *
+        SELECT *, {GROUP_LOCKED_SQL} AS locked
         FROM groups
         WHERE ({})
         AND source_id in ({})
@@ -683,6 +713,11 @@ pub fn search_group(filters: Filters) -> Result<Vec<Channel>> {
         generate_placeholders(filters.source_ids.len()),
         generate_placeholders(media_types.len())
     );
+    if !filters.include_locked {
+        sql_query += &format!(
+            "\nAND NOT {GROUP_LOCKED_SQL}\nAND source_id NOT IN (SELECT id FROM sources WHERE locked = 1)"
+        );
+    }
     if filters.sort != sort_type::PROVIDER {
         let order = match filters.sort {
             sort_type::ALPHABETICAL_ASC => "ASC",
@@ -721,6 +756,7 @@ fn row_to_group(row: &Row) -> std::result::Result<Channel, rusqlite::Error> {
         tv_archive: None,
         season_id: None,
         episode_num: None,
+        locked: row.get("locked")?,
     };
     Ok(channel)
 }
@@ -736,6 +772,7 @@ fn row_to_channel(row: &Row) -> std::result::Result<Channel, rusqlite::Error> {
         url: row.get("url")?,
         favorite: row.get("favorite")?,
         episode_num: row.get("episode_num")?,
+        locked: false,
         series_id: None,
         group: None,
         stream_id: row.get("stream_id")?,
@@ -799,6 +836,7 @@ pub fn delete_source(id: i64) -> Result<()> {
     let sql = get_conn()?;
     delete_favorite_list_entries_by_source(&sql, id)?;
     sql.execute("DELETE FROM movie_positions WHERE source_id = ?", params![id])?;
+    sql.execute("DELETE FROM locked_groups WHERE source_id = ?", params![id])?;
     sql.execute(
         r#"
         DELETE FROM channels
@@ -1023,6 +1061,7 @@ fn row_to_source(row: &Row) -> std::result::Result<Source, rusqlite::Error> {
         user_agent: row.get("user_agent")?,
         stream_user_agent: row.get("stream_user_agent")?,
         last_updated: row.get("last_updated")?,
+        locked: row.get::<_, Option<bool>>("locked")?.unwrap_or(false),
     })
 }
 
@@ -1312,10 +1351,14 @@ const CONTINUE_WATCHING_LIMIT: u8 = 20;
 const CONTINUE_WATCHING_MIN_SECONDS: i64 = 30;
 
 // Unfinished movies and episodes of enabled sources, most recent first.
-pub fn get_continue_watching() -> Result<Vec<ContinueWatching>> {
+pub fn get_continue_watching(include_locked: bool) -> Result<Vec<ContinueWatching>> {
     let sql = get_conn()?;
+    let locked_filter = match include_locked {
+        true => String::new(),
+        false => unlocked_channels_sql("c."),
+    };
     let items = sql
-        .prepare(
+        .prepare(&format!(
             r#"
             SELECT c.*, mp.position AS mp_position, mp.duration AS mp_duration,
               (SELECT s.name FROM channels s
@@ -1330,11 +1373,12 @@ pub fn get_continue_watching() -> Result<Vec<ContinueWatching>> {
             WHERE c.media_type = ?2
             AND c.source_id IN (SELECT id FROM sources WHERE enabled = 1)
             AND mp.position >= ?3
+            {locked_filter}
             GROUP BY mp.id
             ORDER BY mp.updated_at DESC
             LIMIT ?4
             "#,
-        )?
+        ))?
         .query_map(
             params![
                 media_type::SERIE,
@@ -1386,6 +1430,86 @@ pub fn get_next_episode(channel_id: i64) -> Result<Option<Channel>> {
             row_to_channel,
         )
         .optional()?)
+}
+
+// --- Parental locks ---
+
+pub fn set_group_locked(group_id: i64, locked: bool) -> Result<()> {
+    let sql = get_conn()?;
+    let query = match locked {
+        true => "INSERT OR IGNORE INTO locked_groups (source_id, name) SELECT source_id, name FROM groups WHERE id = ?",
+        false => "DELETE FROM locked_groups WHERE (source_id, name) IN (SELECT source_id, name FROM groups WHERE id = ?)",
+    };
+    sql.execute(query, params![group_id])?;
+    Ok(())
+}
+
+pub fn set_source_locked(source_id: i64, locked: bool) -> Result<()> {
+    let sql = get_conn()?;
+    sql.execute(
+        "UPDATE sources SET locked = ? WHERE id = ?",
+        params![locked, source_id],
+    )?;
+    Ok(())
+}
+
+pub fn get_locked_groups() -> Result<Vec<(i64, String)>> {
+    let sql = get_conn()?;
+    let groups = sql
+        .prepare("SELECT source_id, name FROM locked_groups")?
+        .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(groups)
+}
+
+pub fn lock_group_by_name(source_id: i64, name: &str) -> Result<()> {
+    let sql = get_conn()?;
+    sql.execute(
+        "INSERT OR IGNORE INTO locked_groups (source_id, name) VALUES (?, ?)",
+        params![source_id, name],
+    )?;
+    Ok(())
+}
+
+// --- EPG ---
+
+pub struct EpgTarget {
+    pub channel_id: i64,
+    pub source_id: i64,
+    pub stream_id: i64,
+}
+
+// The Xtream livestreams among these channels (the only ones with an EPG).
+pub fn get_epg_targets(channel_ids: &[i64]) -> Result<Vec<EpgTarget>> {
+    if channel_ids.is_empty() {
+        return Ok(vec![]);
+    }
+    let sql = get_conn()?;
+    let query = format!(
+        r#"
+        SELECT c.id, c.source_id, c.stream_id
+        FROM channels c
+        JOIN sources s ON s.id = c.source_id
+        WHERE c.id IN ({})
+        AND c.media_type = {}
+        AND c.stream_id IS NOT NULL
+        AND s.source_type = {}
+        "#,
+        generate_placeholders(channel_ids.len()),
+        media_type::LIVESTREAM,
+        crate::source_type::XTREAM,
+    );
+    let targets = sql
+        .prepare(&query)?
+        .query_map(params_from_iter(channel_ids), |row| {
+            Ok(EpgTarget {
+                channel_id: row.get(0)?,
+                source_id: row.get(1)?,
+                stream_id: row.get(2)?,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(targets)
 }
 
 // --- Backup ---
@@ -1453,8 +1577,8 @@ pub fn insert_backup_source(source: &Source) -> Result<i64> {
     do_tx(|tx| {
         let id = create_or_find_source_by_name(tx, source)?;
         tx.execute(
-            "UPDATE sources SET enabled = ?, stream_user_agent = ?, last_updated = NULL WHERE id = ?",
-            params![source.enabled, source.stream_user_agent, id],
+            "UPDATE sources SET enabled = ?, stream_user_agent = ?, locked = ?, last_updated = NULL WHERE id = ?",
+            params![source.enabled, source.stream_user_agent, source.locked, id],
         )?;
         Ok(id)
     })
@@ -1616,6 +1740,7 @@ pub(crate) mod test_db {
                 user_agent: None,
                 stream_user_agent: None,
                 last_updated: None,
+                locked: false,
             },
         )
         .unwrap();
@@ -1645,6 +1770,7 @@ mod test_favorite_lists {
             tv_archive: None,
             season_id: None,
             episode_num: None,
+            locked: false,
         }
     }
 
@@ -1661,6 +1787,7 @@ mod test_favorite_lists {
             sort: sort_type::ALPHABETICAL_ASC,
             season: None,
             favorite_list_id: list_id,
+            include_locked: true,
         })
         .unwrap()
         .into_iter()
@@ -1778,6 +1905,7 @@ mod test_watch_progress {
             tv_archive: None,
             season_id: None,
             episode_num: None,
+            locked: false,
         }
     }
 
@@ -1816,6 +1944,7 @@ mod test_watch_progress {
                         series_id: Some(77),
                         season_id: Some(season_id),
                         episode_num: Some(episode),
+                        locked: false,
                         url: Some(format!("http://example.local/series/{season_number}{episode}.mp4")),
                         ..movie(&format!("S{season_number}E{episode}"), source_id)
                     },
@@ -1839,7 +1968,7 @@ mod test_watch_progress {
     }
 
     fn continue_watching(source_id: i64) -> Vec<(String, i64, Option<String>)> {
-        get_continue_watching()
+        get_continue_watching(true)
             .unwrap()
             .into_iter()
             .filter(|c| c.channel.source_id == Some(source_id))
@@ -1948,5 +2077,126 @@ mod test_watch_progress {
         assert!(crate::backup::import_backup_sync_err("{}"));
         delete_source(new_source).unwrap();
         delete_favorite_list(restored_list.id).unwrap();
+    }
+}
+
+#[cfg(test)]
+mod test_parental_locks {
+    use super::*;
+    use crate::types::Channel;
+
+    fn live(name: &str, group: &str, source_id: i64) -> Channel {
+        Channel {
+            id: None,
+            name: name.to_string(),
+            url: Some(format!("http://example.local/live/{name}.ts")),
+            group: Some(group.to_string()),
+            image: None,
+            media_type: media_type::LIVESTREAM,
+            source_id: Some(source_id),
+            series_id: None,
+            group_id: None,
+            favorite: false,
+            stream_id: None,
+            tv_archive: None,
+            season_id: None,
+            episode_num: None,
+            locked: false,
+        }
+    }
+
+    fn refresh(source_id: i64) {
+        do_tx(|tx| {
+            wipe(tx, source_id)?;
+            let mut groups = HashMap::new();
+            for (name, group) in [("Cartoons", "Kids"), ("After Dark", "Adult"), ("Headlines", "News")] {
+                let mut channel = live(name, group, source_id);
+                set_channel_group_id(&mut groups, &mut channel, tx, &source_id)?;
+                insert_channel(tx, channel)?;
+            }
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    fn filters(source_id: i64, view_type: u8, include_locked: bool) -> Filters {
+        Filters {
+            query: None,
+            source_ids: vec![source_id],
+            media_types: Some(vec![media_type::LIVESTREAM]),
+            view_type,
+            page: 1,
+            series_id: None,
+            group_id: None,
+            use_keywords: false,
+            sort: sort_type::ALPHABETICAL_ASC,
+            season: None,
+            favorite_list_id: None,
+            include_locked,
+        }
+    }
+
+    fn channels(source_id: i64, include_locked: bool) -> Vec<String> {
+        search(filters(source_id, 0, include_locked))
+            .unwrap()
+            .into_iter()
+            .map(|c| c.name)
+            .collect()
+    }
+
+    fn groups(source_id: i64, include_locked: bool) -> Vec<(String, bool)> {
+        let mut groups: Vec<(String, bool)> =
+            search(filters(source_id, view_type::CATEGORIES, include_locked))
+                .unwrap()
+                .into_iter()
+                .map(|c| (c.name, c.locked))
+                .collect();
+        groups.sort();
+        groups
+    }
+
+    #[test]
+    fn locks_hide_content_and_survive_refresh() {
+        let _db = test_db::lock();
+        let source_id = test_db::source("locks", crate::source_type::M3U, None);
+        refresh(source_id);
+        let adult = search(filters(source_id, view_type::CATEGORIES, true))
+            .unwrap()
+            .into_iter()
+            .find(|g| g.name == "Adult")
+            .unwrap();
+        set_group_locked(adult.id.unwrap(), true).unwrap();
+
+        assert_eq!(channels(source_id, false), ["Cartoons", "Headlines"]);
+        assert_eq!(channels(source_id, true), ["After Dark", "Cartoons", "Headlines"]);
+        assert_eq!(
+            groups(source_id, false),
+            [("Kids".to_string(), false), ("News".to_string(), false)]
+        );
+        assert!(groups(source_id, true).contains(&("Adult".to_string(), true)));
+
+        // The lock is by name, so it survives the new group ids of a refresh
+        refresh(source_id);
+        assert_eq!(channels(source_id, false), ["Cartoons", "Headlines"]);
+
+        // Locking a whole source
+        set_source_locked(source_id, true).unwrap();
+        assert!(channels(source_id, false).is_empty());
+        assert!(groups(source_id, false).is_empty());
+        assert_eq!(channels(source_id, true).len(), 3);
+        set_source_locked(source_id, false).unwrap();
+
+        // Unlocking
+        let adult = search(filters(source_id, view_type::CATEGORIES, true))
+            .unwrap()
+            .into_iter()
+            .find(|g| g.name == "Adult")
+            .unwrap();
+        set_group_locked(adult.id.unwrap(), false).unwrap();
+        assert_eq!(channels(source_id, false).len(), 3);
+
+        set_group_locked(adult.id.unwrap(), true).unwrap();
+        delete_source(source_id).unwrap();
+        assert!(get_locked_groups().unwrap().iter().all(|(s, _)| *s != source_id));
     }
 }

@@ -15,6 +15,8 @@ class Channel {
   // Set for series episodes.
   int? seasonId;
   bool tvArchive;
+  // For categories: hidden by the parental PIN
+  bool locked;
 
   Channel({
     this.id,
@@ -30,6 +32,7 @@ class Channel {
     this.streamId,
     this.seasonId,
     this.tvArchive = false,
+    this.locked = false,
   });
 
   bool get isEpisode => seasonId != null;

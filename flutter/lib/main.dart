@@ -13,6 +13,7 @@ import 'package:open_tv/models/device_detector.dart';
 import 'package:open_tv/models/filters.dart';
 import 'package:open_tv/models/home_manager.dart';
 import 'package:open_tv/models/settings.dart';
+import 'package:open_tv/parental.dart';
 import 'package:open_tv/utils.dart';
 import 'package:open_tv/native_bridge.dart' as nb;
 import 'package:open_tv/setup.dart';
@@ -43,6 +44,7 @@ Future<void> main() async {
   }
   final hasSources = await nb.NativeBridge.instance.hasSources();
   final settings = await nb.NativeBridge.instance.getSettings();
+  ParentalControl.load(settings);
   final hasTouchScreen = await Utils.hasTouchScreen();
   final isTV = await DeviceDetector.isTV();
   runApp(

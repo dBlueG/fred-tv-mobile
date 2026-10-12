@@ -125,6 +125,7 @@ const Channel$json = {
       '10': 'episodeNum',
       '17': true
     },
+    {'1': 'locked', '3': 15, '4': 1, '5': 8, '10': 'locked'},
   ],
   '8': [
     {'1': '_id'},
@@ -150,10 +151,10 @@ final $typed_data.Uint8List channelDescriptor = $convert.base64Decode(
     'ZIgBARIeCghncm91cF9pZBgJIAEoA0gGUgdncm91cElkiAEBEhoKCGZhdm9yaXRlGAogASgIUg'
     'hmYXZvcml0ZRIgCglzdHJlYW1faWQYCyABKARIB1IIc3RyZWFtSWSIAQESIgoKdHZfYXJjaGl2'
     'ZRgMIAEoCEgIUgl0dkFyY2hpdmWIAQESIAoJc2Vhc29uX2lkGA0gASgDSAlSCHNlYXNvbklkiA'
-    'EBEiQKC2VwaXNvZGVfbnVtGA4gASgDSApSCmVwaXNvZGVOdW2IAQFCBQoDX2lkQgYKBF91cmxC'
-    'CAoGX2dyb3VwQggKBl9pbWFnZUIMCgpfc291cmNlX2lkQgwKCl9zZXJpZXNfaWRCCwoJX2dyb3'
-    'VwX2lkQgwKCl9zdHJlYW1faWRCDQoLX3R2X2FyY2hpdmVCDAoKX3NlYXNvbl9pZEIOCgxfZXBp'
-    'c29kZV9udW0=');
+    'EBEiQKC2VwaXNvZGVfbnVtGA4gASgDSApSCmVwaXNvZGVOdW2IAQESFgoGbG9ja2VkGA8gASgI'
+    'UgZsb2NrZWRCBQoDX2lkQgYKBF91cmxCCAoGX2dyb3VwQggKBl9pbWFnZUIMCgpfc291cmNlX2'
+    'lkQgwKCl9zZXJpZXNfaWRCCwoJX2dyb3VwX2lkQgwKCl9zdHJlYW1faWRCDQoLX3R2X2FyY2hp'
+    'dmVCDAoKX3NlYXNvbl9pZEIOCgxfZXBpc29kZV9udW0=');
 
 @$core.Deprecated('Use channelListDescriptor instead')
 const ChannelList$json = {
@@ -238,6 +239,7 @@ const Source$json = {
       '10': 'lastUpdated',
       '17': true
     },
+    {'1': 'locked', '3': 14, '4': 1, '5': 8, '10': 'locked'},
   ],
   '8': [
     {'1': '_id'},
@@ -259,9 +261,9 @@ final $typed_data.Uint8List sourceDescriptor = $convert.base64Decode(
     'N3b3JkiAEBEh8KC3NvdXJjZV90eXBlGAcgASgNUgpzb3VyY2VUeXBlEhgKB2VuYWJsZWQYCSAB'
     'KAhSB2VuYWJsZWQSIgoKdXNlcl9hZ2VudBgKIAEoCUgFUgl1c2VyQWdlbnSIAQESLwoRc3RyZW'
     'FtX3VzZXJfYWdlbnQYDCABKAlIBlIPc3RyZWFtVXNlckFnZW50iAEBEiYKDGxhc3RfdXBkYXRl'
-    'ZBgNIAEoA0gHUgtsYXN0VXBkYXRlZIgBAUIFCgNfaWRCBgoEX3VybEINCgtfdXJsX29yaWdpbk'
-    'ILCglfdXNlcm5hbWVCCwoJX3Bhc3N3b3JkQg0KC191c2VyX2FnZW50QhQKEl9zdHJlYW1fdXNl'
-    'cl9hZ2VudEIPCg1fbGFzdF91cGRhdGVk');
+    'ZBgNIAEoA0gHUgtsYXN0VXBkYXRlZIgBARIWCgZsb2NrZWQYDiABKAhSBmxvY2tlZEIFCgNfaW'
+    'RCBgoEX3VybEINCgtfdXJsX29yaWdpbkILCglfdXNlcm5hbWVCCwoJX3Bhc3N3b3JkQg0KC191'
+    'c2VyX2FnZW50QhQKEl9zdHJlYW1fdXNlcl9hZ2VudEIPCg1fbGFzdF91cGRhdGVk');
 
 @$core.Deprecated('Use settingsDescriptor instead')
 const Settings$json = {
@@ -420,6 +422,24 @@ const Settings$json = {
       '10': 'autoplayCountdownSeconds',
       '17': true
     },
+    {
+      '1': 'show_epg',
+      '3': 18,
+      '4': 1,
+      '5': 8,
+      '9': 17,
+      '10': 'showEpg',
+      '17': true
+    },
+    {
+      '1': 'parental_pin',
+      '3': 19,
+      '4': 1,
+      '5': 9,
+      '9': 18,
+      '10': 'parentalPin',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_use_stream_caching'},
@@ -439,6 +459,8 @@ const Settings$json = {
     {'1': '_show_continue_watching'},
     {'1': '_autoplay_next_episode'},
     {'1': '_autoplay_countdown_seconds'},
+    {'1': '_show_epg'},
+    {'1': '_parental_pin'},
   ],
 };
 
@@ -459,14 +481,15 @@ final $typed_data.Uint8List settingsDescriptor = $convert.base64Decode(
     'cIgBARI5ChZzaG93X2NvbnRpbnVlX3dhdGNoaW5nGA8gASgISA5SFHNob3dDb250aW51ZVdhdG'
     'NoaW5niAEBEjcKFWF1dG9wbGF5X25leHRfZXBpc29kZRgQIAEoCEgPUhNhdXRvcGxheU5leHRF'
     'cGlzb2RliAEBEkEKGmF1dG9wbGF5X2NvdW50ZG93bl9zZWNvbmRzGBEgASgNSBBSGGF1dG9wbG'
-    'F5Q291bnRkb3duU2Vjb25kc4gBAUIVChNfdXNlX3N0cmVhbV9jYWNoaW5nQg8KDV9kZWZhdWx0'
-    'X3ZpZXdCEwoRX3JlZnJlc2hfb25fc3RhcnRCDwoNX2RlZmF1bHRfc29ydEIQCg5fZm9yY2VfdH'
-    'ZfbW9kZUITChFfc2hvd19saXZlc3RyZWFtc0IOCgxfc2hvd19tb3ZpZXNCDgoMX3Nob3dfc2Vy'
-    'aWVzQh0KG192b2x1bWVfYnJpZ2h0bmVzc19nZXN0dXJlc0IaChhfc3dpcGVfdG9fY2hhbmdlX2'
-    'NoYW5uZWxCEgoQX2RvdWJsZV90YXBfc2Vla0IPCg1fc2Vla19zZWNvbmRzQhUKE19waWN0dXJl'
-    'X2luX3BpY3R1cmVCFwoVX2tlZXBfYXVkaW9fYWZ0ZXJfcGlwQhkKF19zaG93X2NvbnRpbnVlX3'
-    'dhdGNoaW5nQhgKFl9hdXRvcGxheV9uZXh0X2VwaXNvZGVCHQobX2F1dG9wbGF5X2NvdW50ZG93'
-    'bl9zZWNvbmRz');
+    'F5Q291bnRkb3duU2Vjb25kc4gBARIeCghzaG93X2VwZxgSIAEoCEgRUgdzaG93RXBniAEBEiYK'
+    'DHBhcmVudGFsX3BpbhgTIAEoCUgSUgtwYXJlbnRhbFBpbogBAUIVChNfdXNlX3N0cmVhbV9jYW'
+    'NoaW5nQg8KDV9kZWZhdWx0X3ZpZXdCEwoRX3JlZnJlc2hfb25fc3RhcnRCDwoNX2RlZmF1bHRf'
+    'c29ydEIQCg5fZm9yY2VfdHZfbW9kZUITChFfc2hvd19saXZlc3RyZWFtc0IOCgxfc2hvd19tb3'
+    'ZpZXNCDgoMX3Nob3dfc2VyaWVzQh0KG192b2x1bWVfYnJpZ2h0bmVzc19nZXN0dXJlc0IaChhf'
+    'c3dpcGVfdG9fY2hhbmdlX2NoYW5uZWxCEgoQX2RvdWJsZV90YXBfc2Vla0IPCg1fc2Vla19zZW'
+    'NvbmRzQhUKE19waWN0dXJlX2luX3BpY3R1cmVCFwoVX2tlZXBfYXVkaW9fYWZ0ZXJfcGlwQhkK'
+    'F19zaG93X2NvbnRpbnVlX3dhdGNoaW5nQhgKFl9hdXRvcGxheV9uZXh0X2VwaXNvZGVCHQobX2'
+    'F1dG9wbGF5X2NvdW50ZG93bl9zZWNvbmRzQgsKCV9zaG93X2VwZ0IPCg1fcGFyZW50YWxfcGlu');
 
 @$core.Deprecated('Use filtersDescriptor instead')
 const Filters$json = {
@@ -529,6 +552,7 @@ const Filters$json = {
       '10': 'favoriteListId',
       '17': true
     },
+    {'1': 'include_locked', '3': 12, '4': 1, '5': 8, '10': 'includeLocked'},
   ],
   '8': [
     {'1': '_query'},
@@ -548,8 +572,9 @@ final $typed_data.Uint8List filtersDescriptor = $convert.base64Decode(
     'A0gBUghzZXJpZXNJZIgBARIeCghncm91cF9pZBgHIAEoA0gCUgdncm91cElkiAEBEiEKDHVzZV'
     '9rZXl3b3JkcxgIIAEoCFILdXNlS2V5d29yZHMSEgoEc29ydBgJIAEoDVIEc29ydBIbCgZzZWFz'
     'b24YCiABKANIA1IGc2Vhc29uiAEBEi0KEGZhdm9yaXRlX2xpc3RfaWQYCyABKANIBFIOZmF2b3'
-    'JpdGVMaXN0SWSIAQFCCAoGX3F1ZXJ5QgwKCl9zZXJpZXNfaWRCCwoJX2dyb3VwX2lkQgkKB19z'
-    'ZWFzb25CEwoRX2Zhdm9yaXRlX2xpc3RfaWQ=');
+    'JpdGVMaXN0SWSIAQESJQoOaW5jbHVkZV9sb2NrZWQYDCABKAhSDWluY2x1ZGVMb2NrZWRCCAoG'
+    'X3F1ZXJ5QgwKCl9zZXJpZXNfaWRCCwoJX2dyb3VwX2lkQgkKB19zZWFzb25CEwoRX2Zhdm9yaX'
+    'RlX2xpc3RfaWQ=');
 
 @$core.Deprecated('Use toggleFavoriteDescriptor instead')
 const ToggleFavorite$json = {
@@ -722,6 +747,138 @@ final $typed_data.Uint8List continueWatchingItemDescriptor = $convert.base64Deco
     'RvLkNoYW5uZWxSB2NoYW5uZWwSGgoIcG9zaXRpb24YAiABKANSCHBvc2l0aW9uEh8KCGR1cmF0'
     'aW9uGAMgASgDSABSCGR1cmF0aW9uiAEBEiQKC3Nlcmllc19uYW1lGAQgASgJSAFSCnNlcmllc0'
     '5hbWWIAQFCCwoJX2R1cmF0aW9uQg4KDF9zZXJpZXNfbmFtZQ==');
+
+@$core.Deprecated('Use epgProgramDescriptor instead')
+const EpgProgram$json = {
+  '1': 'EpgProgram',
+  '2': [
+    {'1': 'title', '3': 1, '4': 1, '5': 9, '10': 'title'},
+    {
+      '1': 'description',
+      '3': 2,
+      '4': 1,
+      '5': 9,
+      '9': 0,
+      '10': 'description',
+      '17': true
+    },
+    {'1': 'start', '3': 3, '4': 1, '5': 3, '10': 'start'},
+    {'1': 'stop', '3': 4, '4': 1, '5': 3, '10': 'stop'},
+    {'1': 'has_archive', '3': 5, '4': 1, '5': 8, '10': 'hasArchive'},
+    {
+      '1': 'catchup_url',
+      '3': 6,
+      '4': 1,
+      '5': 9,
+      '9': 1,
+      '10': 'catchupUrl',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_description'},
+    {'1': '_catchup_url'},
+  ],
+};
+
+/// Descriptor for `EpgProgram`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List epgProgramDescriptor = $convert.base64Decode(
+    'CgpFcGdQcm9ncmFtEhQKBXRpdGxlGAEgASgJUgV0aXRsZRIlCgtkZXNjcmlwdGlvbhgCIAEoCU'
+    'gAUgtkZXNjcmlwdGlvbogBARIUCgVzdGFydBgDIAEoA1IFc3RhcnQSEgoEc3RvcBgEIAEoA1IE'
+    'c3RvcBIfCgtoYXNfYXJjaGl2ZRgFIAEoCFIKaGFzQXJjaGl2ZRIkCgtjYXRjaHVwX3VybBgGIA'
+    'EoCUgBUgpjYXRjaHVwVXJsiAEBQg4KDF9kZXNjcmlwdGlvbkIOCgxfY2F0Y2h1cF91cmw=');
+
+@$core.Deprecated('Use epgNowNextDescriptor instead')
+const EpgNowNext$json = {
+  '1': 'EpgNowNext',
+  '2': [
+    {'1': 'channel_id', '3': 1, '4': 1, '5': 3, '10': 'channelId'},
+    {
+      '1': 'now',
+      '3': 2,
+      '4': 1,
+      '5': 11,
+      '6': '.generated_proto.EpgProgram',
+      '9': 0,
+      '10': 'now',
+      '17': true
+    },
+    {
+      '1': 'next',
+      '3': 3,
+      '4': 1,
+      '5': 11,
+      '6': '.generated_proto.EpgProgram',
+      '9': 1,
+      '10': 'next',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_now'},
+    {'1': '_next'},
+  ],
+};
+
+/// Descriptor for `EpgNowNext`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List epgNowNextDescriptor = $convert.base64Decode(
+    'CgpFcGdOb3dOZXh0Eh0KCmNoYW5uZWxfaWQYASABKANSCWNoYW5uZWxJZBIyCgNub3cYAiABKA'
+    'syGy5nZW5lcmF0ZWRfcHJvdG8uRXBnUHJvZ3JhbUgAUgNub3eIAQESNAoEbmV4dBgDIAEoCzIb'
+    'LmdlbmVyYXRlZF9wcm90by5FcGdQcm9ncmFtSAFSBG5leHSIAQFCBgoEX25vd0IHCgVfbmV4dA'
+    '==');
+
+@$core.Deprecated('Use epgNowNextListDescriptor instead')
+const EpgNowNextList$json = {
+  '1': 'EpgNowNextList',
+  '2': [
+    {
+      '1': 'items',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.generated_proto.EpgNowNext',
+      '10': 'items'
+    },
+  ],
+};
+
+/// Descriptor for `EpgNowNextList`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List epgNowNextListDescriptor = $convert.base64Decode(
+    'Cg5FcGdOb3dOZXh0TGlzdBIxCgVpdGVtcxgBIAMoCzIbLmdlbmVyYXRlZF9wcm90by5FcGdOb3'
+    'dOZXh0UgVpdGVtcw==');
+
+@$core.Deprecated('Use epgProgramListDescriptor instead')
+const EpgProgramList$json = {
+  '1': 'EpgProgramList',
+  '2': [
+    {
+      '1': 'programs',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.generated_proto.EpgProgram',
+      '10': 'programs'
+    },
+  ],
+};
+
+/// Descriptor for `EpgProgramList`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List epgProgramListDescriptor = $convert.base64Decode(
+    'Cg5FcGdQcm9ncmFtTGlzdBI3Cghwcm9ncmFtcxgBIAMoCzIbLmdlbmVyYXRlZF9wcm90by5FcG'
+    'dQcm9ncmFtUghwcm9ncmFtcw==');
+
+@$core.Deprecated('Use setLockedDescriptor instead')
+const SetLocked$json = {
+  '1': 'SetLocked',
+  '2': [
+    {'1': 'id', '3': 1, '4': 1, '5': 3, '10': 'id'},
+    {'1': 'locked', '3': 2, '4': 1, '5': 8, '10': 'locked'},
+  ],
+};
+
+/// Descriptor for `SetLocked`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List setLockedDescriptor = $convert.base64Decode(
+    'CglTZXRMb2NrZWQSDgoCaWQYASABKANSAmlkEhYKBmxvY2tlZBgCIAEoCFIGbG9ja2Vk');
 
 @$core.Deprecated('Use continueWatchingListDescriptor instead')
 const ContinueWatchingList$json = {
@@ -1145,6 +1302,24 @@ const FFIResult$json = {
       '9': 0,
       '10': 'channel'
     },
+    {
+      '1': 'epg_now_next',
+      '3': 19,
+      '4': 1,
+      '5': 11,
+      '6': '.generated_proto.EpgNowNextList',
+      '9': 0,
+      '10': 'epgNowNext'
+    },
+    {
+      '1': 'epg_programs',
+      '3': 20,
+      '4': 1,
+      '5': 11,
+      '6': '.generated_proto.EpgProgramList',
+      '9': 0,
+      '10': 'epgPrograms'
+    },
   ],
   '8': [
     {'1': 'data'},
@@ -1173,5 +1348,7 @@ final $typed_data.Uint8List fFIResultDescriptor = $convert.base64Decode(
     'cl9tZXNzYWdlGBAgASgLMhsuZ2VuZXJhdGVkX3Byb3RvLlN0ck1lc3NhZ2VIAFIKc3RyTWVzc2'
     'FnZRJUChFjb250aW51ZV93YXRjaGluZxgRIAEoCzIlLmdlbmVyYXRlZF9wcm90by5Db250aW51'
     'ZVdhdGNoaW5nTGlzdEgAUhBjb250aW51ZVdhdGNoaW5nEjQKB2NoYW5uZWwYEiABKAsyGC5nZW'
-    '5lcmF0ZWRfcHJvdG8uQ2hhbm5lbEgAUgdjaGFubmVsQgYKBGRhdGFCEAoOX2Vycm9yX21lc3Nh'
-    'Z2U=');
+    '5lcmF0ZWRfcHJvdG8uQ2hhbm5lbEgAUgdjaGFubmVsEkMKDGVwZ19ub3dfbmV4dBgTIAEoCzIf'
+    'LmdlbmVyYXRlZF9wcm90by5FcGdOb3dOZXh0TGlzdEgAUgplcGdOb3dOZXh0EkQKDGVwZ19wcm'
+    '9ncmFtcxgUIAEoCzIfLmdlbmVyYXRlZF9wcm90by5FcGdQcm9ncmFtTGlzdEgAUgtlcGdQcm9n'
+    'cmFtc0IGCgRkYXRhQhAKDl9lcnJvcl9tZXNzYWdl');

@@ -37,6 +37,7 @@ class Channel extends $pb.GeneratedMessage {
     $core.bool? tvArchive,
     $fixnum.Int64? seasonId,
     $fixnum.Int64? episodeNum,
+    $core.bool? locked,
   }) {
     final result = create();
     if (id != null) result.id = id;
@@ -53,6 +54,7 @@ class Channel extends $pb.GeneratedMessage {
     if (tvArchive != null) result.tvArchive = tvArchive;
     if (seasonId != null) result.seasonId = seasonId;
     if (episodeNum != null) result.episodeNum = episodeNum;
+    if (locked != null) result.locked = locked;
     return result;
   }
 
@@ -88,6 +90,7 @@ class Channel extends $pb.GeneratedMessage {
     ..aOB(12, _omitFieldNames ? '' : 'tvArchive')
     ..aInt64(13, _omitFieldNames ? '' : 'seasonId')
     ..aInt64(14, _omitFieldNames ? '' : 'episodeNum')
+    ..aOB(15, _omitFieldNames ? '' : 'locked')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -233,6 +236,16 @@ class Channel extends $pb.GeneratedMessage {
   $core.bool hasEpisodeNum() => $_has(13);
   @$pb.TagNumber(14)
   void clearEpisodeNum() => $_clearField(14);
+
+  /// Categories and sources hidden by the parental PIN
+  @$pb.TagNumber(15)
+  $core.bool get locked => $_getBF(14);
+  @$pb.TagNumber(15)
+  set locked($core.bool value) => $_setBool(14, value);
+  @$pb.TagNumber(15)
+  $core.bool hasLocked() => $_has(14);
+  @$pb.TagNumber(15)
+  void clearLocked() => $_clearField(15);
 }
 
 class ChannelList extends $pb.GeneratedMessage {
@@ -298,6 +311,7 @@ class Source extends $pb.GeneratedMessage {
     $core.String? userAgent,
     $core.String? streamUserAgent,
     $fixnum.Int64? lastUpdated,
+    $core.bool? locked,
   }) {
     final result = create();
     if (id != null) result.id = id;
@@ -311,6 +325,7 @@ class Source extends $pb.GeneratedMessage {
     if (userAgent != null) result.userAgent = userAgent;
     if (streamUserAgent != null) result.streamUserAgent = streamUserAgent;
     if (lastUpdated != null) result.lastUpdated = lastUpdated;
+    if (locked != null) result.locked = locked;
     return result;
   }
 
@@ -339,6 +354,7 @@ class Source extends $pb.GeneratedMessage {
     ..aOS(10, _omitFieldNames ? '' : 'userAgent')
     ..aOS(12, _omitFieldNames ? '' : 'streamUserAgent')
     ..aInt64(13, _omitFieldNames ? '' : 'lastUpdated')
+    ..aOB(14, _omitFieldNames ? '' : 'locked')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -457,6 +473,15 @@ class Source extends $pb.GeneratedMessage {
   $core.bool hasLastUpdated() => $_has(10);
   @$pb.TagNumber(13)
   void clearLastUpdated() => $_clearField(13);
+
+  @$pb.TagNumber(14)
+  $core.bool get locked => $_getBF(11);
+  @$pb.TagNumber(14)
+  set locked($core.bool value) => $_setBool(11, value);
+  @$pb.TagNumber(14)
+  $core.bool hasLocked() => $_has(11);
+  @$pb.TagNumber(14)
+  void clearLocked() => $_clearField(14);
 }
 
 class Settings extends $pb.GeneratedMessage {
@@ -478,6 +503,8 @@ class Settings extends $pb.GeneratedMessage {
     $core.bool? showContinueWatching,
     $core.bool? autoplayNextEpisode,
     $core.int? autoplayCountdownSeconds,
+    $core.bool? showEpg,
+    $core.String? parentalPin,
   }) {
     final result = create();
     if (useStreamCaching != null) result.useStreamCaching = useStreamCaching;
@@ -502,6 +529,8 @@ class Settings extends $pb.GeneratedMessage {
       result.autoplayNextEpisode = autoplayNextEpisode;
     if (autoplayCountdownSeconds != null)
       result.autoplayCountdownSeconds = autoplayCountdownSeconds;
+    if (showEpg != null) result.showEpg = showEpg;
+    if (parentalPin != null) result.parentalPin = parentalPin;
     return result;
   }
 
@@ -540,6 +569,8 @@ class Settings extends $pb.GeneratedMessage {
     ..aOB(16, _omitFieldNames ? '' : 'autoplayNextEpisode')
     ..aI(17, _omitFieldNames ? '' : 'autoplayCountdownSeconds',
         fieldType: $pb.PbFieldType.OU3)
+    ..aOB(18, _omitFieldNames ? '' : 'showEpg')
+    ..aOS(19, _omitFieldNames ? '' : 'parentalPin')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -713,6 +744,24 @@ class Settings extends $pb.GeneratedMessage {
   $core.bool hasAutoplayCountdownSeconds() => $_has(16);
   @$pb.TagNumber(17)
   void clearAutoplayCountdownSeconds() => $_clearField(17);
+
+  @$pb.TagNumber(18)
+  $core.bool get showEpg => $_getBF(17);
+  @$pb.TagNumber(18)
+  set showEpg($core.bool value) => $_setBool(17, value);
+  @$pb.TagNumber(18)
+  $core.bool hasShowEpg() => $_has(17);
+  @$pb.TagNumber(18)
+  void clearShowEpg() => $_clearField(18);
+
+  @$pb.TagNumber(19)
+  $core.String get parentalPin => $_getSZ(18);
+  @$pb.TagNumber(19)
+  set parentalPin($core.String value) => $_setString(18, value);
+  @$pb.TagNumber(19)
+  $core.bool hasParentalPin() => $_has(18);
+  @$pb.TagNumber(19)
+  void clearParentalPin() => $_clearField(19);
 }
 
 class Filters extends $pb.GeneratedMessage {
@@ -728,6 +777,7 @@ class Filters extends $pb.GeneratedMessage {
     $core.int? sort,
     $fixnum.Int64? season,
     $fixnum.Int64? favoriteListId,
+    $core.bool? includeLocked,
   }) {
     final result = create();
     if (query != null) result.query = query;
@@ -741,6 +791,7 @@ class Filters extends $pb.GeneratedMessage {
     if (sort != null) result.sort = sort;
     if (season != null) result.season = season;
     if (favoriteListId != null) result.favoriteListId = favoriteListId;
+    if (includeLocked != null) result.includeLocked = includeLocked;
     return result;
   }
 
@@ -774,6 +825,7 @@ class Filters extends $pb.GeneratedMessage {
     ..aI(9, _omitFieldNames ? '' : 'sort', fieldType: $pb.PbFieldType.OU3)
     ..aInt64(10, _omitFieldNames ? '' : 'season')
     ..aInt64(11, _omitFieldNames ? '' : 'favoriteListId')
+    ..aOB(12, _omitFieldNames ? '' : 'includeLocked')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -880,6 +932,15 @@ class Filters extends $pb.GeneratedMessage {
   $core.bool hasFavoriteListId() => $_has(10);
   @$pb.TagNumber(11)
   void clearFavoriteListId() => $_clearField(11);
+
+  @$pb.TagNumber(12)
+  $core.bool get includeLocked => $_getBF(11);
+  @$pb.TagNumber(12)
+  set includeLocked($core.bool value) => $_setBool(11, value);
+  @$pb.TagNumber(12)
+  $core.bool hasIncludeLocked() => $_has(11);
+  @$pb.TagNumber(12)
+  void clearIncludeLocked() => $_clearField(12);
 }
 
 class ToggleFavorite extends $pb.GeneratedMessage {
@@ -1480,6 +1541,370 @@ class ContinueWatchingItem extends $pb.GeneratedMessage {
   $core.bool hasSeriesName() => $_has(3);
   @$pb.TagNumber(4)
   void clearSeriesName() => $_clearField(4);
+}
+
+class EpgProgram extends $pb.GeneratedMessage {
+  factory EpgProgram({
+    $core.String? title,
+    $core.String? description,
+    $fixnum.Int64? start,
+    $fixnum.Int64? stop,
+    $core.bool? hasArchive,
+    $core.String? catchupUrl,
+  }) {
+    final result = create();
+    if (title != null) result.title = title;
+    if (description != null) result.description = description;
+    if (start != null) result.start = start;
+    if (stop != null) result.stop = stop;
+    if (hasArchive != null) result.hasArchive = hasArchive;
+    if (catchupUrl != null) result.catchupUrl = catchupUrl;
+    return result;
+  }
+
+  EpgProgram._();
+
+  factory EpgProgram.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory EpgProgram.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'EpgProgram',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'generated_proto'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'title')
+    ..aOS(2, _omitFieldNames ? '' : 'description')
+    ..aInt64(3, _omitFieldNames ? '' : 'start')
+    ..aInt64(4, _omitFieldNames ? '' : 'stop')
+    ..aOB(5, _omitFieldNames ? '' : 'hasArchive')
+    ..aOS(6, _omitFieldNames ? '' : 'catchupUrl')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  EpgProgram clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  EpgProgram copyWith(void Function(EpgProgram) updates) =>
+      super.copyWith((message) => updates(message as EpgProgram)) as EpgProgram;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static EpgProgram create() => EpgProgram._();
+  @$core.override
+  EpgProgram createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static EpgProgram getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<EpgProgram>(create);
+  static EpgProgram? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get title => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set title($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasTitle() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearTitle() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get description => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set description($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasDescription() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearDescription() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $fixnum.Int64 get start => $_getI64(2);
+  @$pb.TagNumber(3)
+  set start($fixnum.Int64 value) => $_setInt64(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasStart() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearStart() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $fixnum.Int64 get stop => $_getI64(3);
+  @$pb.TagNumber(4)
+  set stop($fixnum.Int64 value) => $_setInt64(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasStop() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearStop() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.bool get hasArchive => $_getBF(4);
+  @$pb.TagNumber(5)
+  set hasArchive($core.bool value) => $_setBool(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasHasArchive() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearHasArchive() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get catchupUrl => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set catchupUrl($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasCatchupUrl() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearCatchupUrl() => $_clearField(6);
+}
+
+class EpgNowNext extends $pb.GeneratedMessage {
+  factory EpgNowNext({
+    $fixnum.Int64? channelId,
+    EpgProgram? now,
+    EpgProgram? next,
+  }) {
+    final result = create();
+    if (channelId != null) result.channelId = channelId;
+    if (now != null) result.now = now;
+    if (next != null) result.next = next;
+    return result;
+  }
+
+  EpgNowNext._();
+
+  factory EpgNowNext.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory EpgNowNext.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'EpgNowNext',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'generated_proto'),
+      createEmptyInstance: create)
+    ..aInt64(1, _omitFieldNames ? '' : 'channelId')
+    ..aOM<EpgProgram>(2, _omitFieldNames ? '' : 'now',
+        subBuilder: EpgProgram.create)
+    ..aOM<EpgProgram>(3, _omitFieldNames ? '' : 'next',
+        subBuilder: EpgProgram.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  EpgNowNext clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  EpgNowNext copyWith(void Function(EpgNowNext) updates) =>
+      super.copyWith((message) => updates(message as EpgNowNext)) as EpgNowNext;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static EpgNowNext create() => EpgNowNext._();
+  @$core.override
+  EpgNowNext createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static EpgNowNext getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<EpgNowNext>(create);
+  static EpgNowNext? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get channelId => $_getI64(0);
+  @$pb.TagNumber(1)
+  set channelId($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasChannelId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearChannelId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  EpgProgram get now => $_getN(1);
+  @$pb.TagNumber(2)
+  set now(EpgProgram value) => $_setField(2, value);
+  @$pb.TagNumber(2)
+  $core.bool hasNow() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearNow() => $_clearField(2);
+  @$pb.TagNumber(2)
+  EpgProgram ensureNow() => $_ensure(1);
+
+  @$pb.TagNumber(3)
+  EpgProgram get next => $_getN(2);
+  @$pb.TagNumber(3)
+  set next(EpgProgram value) => $_setField(3, value);
+  @$pb.TagNumber(3)
+  $core.bool hasNext() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearNext() => $_clearField(3);
+  @$pb.TagNumber(3)
+  EpgProgram ensureNext() => $_ensure(2);
+}
+
+class EpgNowNextList extends $pb.GeneratedMessage {
+  factory EpgNowNextList({
+    $core.Iterable<EpgNowNext>? items,
+  }) {
+    final result = create();
+    if (items != null) result.items.addAll(items);
+    return result;
+  }
+
+  EpgNowNextList._();
+
+  factory EpgNowNextList.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory EpgNowNextList.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'EpgNowNextList',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'generated_proto'),
+      createEmptyInstance: create)
+    ..pPM<EpgNowNext>(1, _omitFieldNames ? '' : 'items',
+        subBuilder: EpgNowNext.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  EpgNowNextList clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  EpgNowNextList copyWith(void Function(EpgNowNextList) updates) =>
+      super.copyWith((message) => updates(message as EpgNowNextList))
+          as EpgNowNextList;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static EpgNowNextList create() => EpgNowNextList._();
+  @$core.override
+  EpgNowNextList createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static EpgNowNextList getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<EpgNowNextList>(create);
+  static EpgNowNextList? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbList<EpgNowNext> get items => $_getList(0);
+}
+
+class EpgProgramList extends $pb.GeneratedMessage {
+  factory EpgProgramList({
+    $core.Iterable<EpgProgram>? programs,
+  }) {
+    final result = create();
+    if (programs != null) result.programs.addAll(programs);
+    return result;
+  }
+
+  EpgProgramList._();
+
+  factory EpgProgramList.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory EpgProgramList.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'EpgProgramList',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'generated_proto'),
+      createEmptyInstance: create)
+    ..pPM<EpgProgram>(1, _omitFieldNames ? '' : 'programs',
+        subBuilder: EpgProgram.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  EpgProgramList clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  EpgProgramList copyWith(void Function(EpgProgramList) updates) =>
+      super.copyWith((message) => updates(message as EpgProgramList))
+          as EpgProgramList;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static EpgProgramList create() => EpgProgramList._();
+  @$core.override
+  EpgProgramList createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static EpgProgramList getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<EpgProgramList>(create);
+  static EpgProgramList? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbList<EpgProgram> get programs => $_getList(0);
+}
+
+class SetLocked extends $pb.GeneratedMessage {
+  factory SetLocked({
+    $fixnum.Int64? id,
+    $core.bool? locked,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    if (locked != null) result.locked = locked;
+    return result;
+  }
+
+  SetLocked._();
+
+  factory SetLocked.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory SetLocked.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SetLocked',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'generated_proto'),
+      createEmptyInstance: create)
+    ..aInt64(1, _omitFieldNames ? '' : 'id')
+    ..aOB(2, _omitFieldNames ? '' : 'locked')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SetLocked clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SetLocked copyWith(void Function(SetLocked) updates) =>
+      super.copyWith((message) => updates(message as SetLocked)) as SetLocked;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static SetLocked create() => SetLocked._();
+  @$core.override
+  SetLocked createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static SetLocked getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SetLocked>(create);
+  static SetLocked? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get id => $_getI64(0);
+  @$pb.TagNumber(1)
+  set id($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.bool get locked => $_getBF(1);
+  @$pb.TagNumber(2)
+  set locked($core.bool value) => $_setBool(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasLocked() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearLocked() => $_clearField(2);
 }
 
 class ContinueWatchingList extends $pb.GeneratedMessage {
@@ -2246,6 +2671,8 @@ enum FFIResult_Data {
   strMessage,
   continueWatching,
   channel,
+  epgNowNext,
+  epgPrograms,
   notSet
 }
 
@@ -2268,6 +2695,8 @@ class FFIResult extends $pb.GeneratedMessage {
     StrMessage? strMessage,
     ContinueWatchingList? continueWatching,
     Channel? channel,
+    EpgNowNextList? epgNowNext,
+    EpgProgramList? epgPrograms,
   }) {
     final result = create();
     if (success != null) result.success = success;
@@ -2288,6 +2717,8 @@ class FFIResult extends $pb.GeneratedMessage {
     if (strMessage != null) result.strMessage = strMessage;
     if (continueWatching != null) result.continueWatching = continueWatching;
     if (channel != null) result.channel = channel;
+    if (epgNowNext != null) result.epgNowNext = epgNowNext;
+    if (epgPrograms != null) result.epgPrograms = epgPrograms;
     return result;
   }
 
@@ -2316,6 +2747,8 @@ class FFIResult extends $pb.GeneratedMessage {
     16: FFIResult_Data.strMessage,
     17: FFIResult_Data.continueWatching,
     18: FFIResult_Data.channel,
+    19: FFIResult_Data.epgNowNext,
+    20: FFIResult_Data.epgPrograms,
     0: FFIResult_Data.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
@@ -2323,7 +2756,7 @@ class FFIResult extends $pb.GeneratedMessage {
       package:
           const $pb.PackageName(_omitMessageNames ? '' : 'generated_proto'),
       createEmptyInstance: create)
-    ..oo(0, [3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18])
+    ..oo(0, [3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20])
     ..aOB(1, _omitFieldNames ? '' : 'success')
     ..aOS(2, _omitFieldNames ? '' : 'errorMessage')
     ..aOM<Settings>(3, _omitFieldNames ? '' : 'settings',
@@ -2356,6 +2789,10 @@ class FFIResult extends $pb.GeneratedMessage {
         subBuilder: ContinueWatchingList.create)
     ..aOM<Channel>(18, _omitFieldNames ? '' : 'channel',
         subBuilder: Channel.create)
+    ..aOM<EpgNowNextList>(19, _omitFieldNames ? '' : 'epgNowNext',
+        subBuilder: EpgNowNextList.create)
+    ..aOM<EpgProgramList>(20, _omitFieldNames ? '' : 'epgPrograms',
+        subBuilder: EpgProgramList.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2391,6 +2828,8 @@ class FFIResult extends $pb.GeneratedMessage {
   @$pb.TagNumber(16)
   @$pb.TagNumber(17)
   @$pb.TagNumber(18)
+  @$pb.TagNumber(19)
+  @$pb.TagNumber(20)
   FFIResult_Data whichData() => _FFIResult_DataByTag[$_whichOneof(0)]!;
   @$pb.TagNumber(3)
   @$pb.TagNumber(4)
@@ -2407,6 +2846,8 @@ class FFIResult extends $pb.GeneratedMessage {
   @$pb.TagNumber(16)
   @$pb.TagNumber(17)
   @$pb.TagNumber(18)
+  @$pb.TagNumber(19)
+  @$pb.TagNumber(20)
   void clearData() => $_clearField($_whichOneof(0));
 
   @$pb.TagNumber(1)
@@ -2592,6 +3033,28 @@ class FFIResult extends $pb.GeneratedMessage {
   void clearChannel() => $_clearField(18);
   @$pb.TagNumber(18)
   Channel ensureChannel() => $_ensure(16);
+
+  @$pb.TagNumber(19)
+  EpgNowNextList get epgNowNext => $_getN(17);
+  @$pb.TagNumber(19)
+  set epgNowNext(EpgNowNextList value) => $_setField(19, value);
+  @$pb.TagNumber(19)
+  $core.bool hasEpgNowNext() => $_has(17);
+  @$pb.TagNumber(19)
+  void clearEpgNowNext() => $_clearField(19);
+  @$pb.TagNumber(19)
+  EpgNowNextList ensureEpgNowNext() => $_ensure(17);
+
+  @$pb.TagNumber(20)
+  EpgProgramList get epgPrograms => $_getN(18);
+  @$pb.TagNumber(20)
+  set epgPrograms(EpgProgramList value) => $_setField(20, value);
+  @$pb.TagNumber(20)
+  $core.bool hasEpgPrograms() => $_has(18);
+  @$pb.TagNumber(20)
+  void clearEpgPrograms() => $_clearField(20);
+  @$pb.TagNumber(20)
+  EpgProgramList ensureEpgPrograms() => $_ensure(18);
 }
 
 const $core.bool _omitFieldNames =

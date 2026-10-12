@@ -6,6 +6,7 @@ use anyhow::Ok;
 
 mod backup;
 mod c;
+mod epg;
 mod generated_proto;
 mod log;
 mod m3u;
@@ -39,6 +40,8 @@ impl From<crate::types::Settings> for crate::generated_proto::Settings {
             show_continue_watching: settings.show_continue_watching,
             autoplay_next_episode: settings.autoplay_next_episode,
             autoplay_countdown_seconds: settings.autoplay_countdown_seconds,
+            show_epg: settings.show_epg,
+            parental_pin: settings.parental_pin,
         }
     }
 }
@@ -63,6 +66,8 @@ impl From<crate::generated_proto::Settings> for crate::types::Settings {
             show_continue_watching: settings.show_continue_watching,
             autoplay_next_episode: settings.autoplay_next_episode,
             autoplay_countdown_seconds: settings.autoplay_countdown_seconds,
+            show_epg: settings.show_epg,
+            parental_pin: settings.parental_pin,
         }
     }
 }
@@ -81,6 +86,7 @@ impl From<crate::generated_proto::Source> for crate::types::Source {
             stream_user_agent: source.stream_user_agent,
             user_agent: source.user_agent,
             enabled: source.enabled,
+            locked: source.locked,
         }
     }
 }
@@ -99,6 +105,7 @@ impl From<crate::types::Source> for crate::generated_proto::Source {
             user_agent: source.user_agent,
             stream_user_agent: source.stream_user_agent,
             last_updated: source.last_updated,
+            locked: source.locked,
         }
     }
 }
@@ -126,6 +133,7 @@ impl From<crate::generated_proto::Filters> for crate::types::Filters {
             sort: filters.sort as u8,
             season: filters.season,
             favorite_list_id: filters.favorite_list_id,
+            include_locked: filters.include_locked,
         }
     }
 }
@@ -156,6 +164,7 @@ impl From<crate::types::Channel> for crate::generated_proto::Channel {
             tv_archive: channel.tv_archive,
             season_id: channel.season_id,
             episode_num: channel.episode_num,
+            locked: channel.locked,
         }
     }
 }
@@ -174,6 +183,29 @@ impl From<crate::types::ContinueWatching> for crate::generated_proto::ContinueWa
             position: item.position,
             duration: item.duration,
             series_name: item.series_name,
+        }
+    }
+}
+
+impl From<crate::types::EpgProgram> for crate::generated_proto::EpgProgram {
+    fn from(p: crate::types::EpgProgram) -> Self {
+        crate::generated_proto::EpgProgram {
+            title: p.title,
+            description: p.description,
+            start: p.start,
+            stop: p.stop,
+            has_archive: p.has_archive,
+            catchup_url: p.catchup_url,
+        }
+    }
+}
+
+impl From<crate::types::EpgNowNext> for crate::generated_proto::EpgNowNext {
+    fn from(e: crate::types::EpgNowNext) -> Self {
+        crate::generated_proto::EpgNowNext {
+            channel_id: e.channel_id,
+            now: e.now.map(Into::into),
+            next: e.next.map(Into::into),
         }
     }
 }
@@ -453,17 +485,92 @@ pub extern "C" fn remove_movie_position(
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn get_continue_watching(task_id: u64, callback: FfiCallback) {
-    c::queue_blocking(task_id, callback, || {
-        Ok(generated_proto::ffi_result::Data::ContinueWatching(
-            generated_proto::ContinueWatchingList {
-                items: sql::get_continue_watching()?
-                    .into_iter()
-                    .map(Into::into)
-                    .collect(),
-            },
-        ))
-    })
+pub extern "C" fn get_continue_watching(
+    task_id: u64,
+    callback: FfiCallback,
+    ptr: *const u8,
+    len: usize,
+) {
+    c::queue_blocking_with_message(
+        task_id,
+        callback,
+        ptr,
+        len,
+        |include_locked: generated_proto::BoolMessage| {
+            Ok(generated_proto::ffi_result::Data::ContinueWatching(
+                generated_proto::ContinueWatchingList {
+                    items: sql::get_continue_watching(include_locked.value)?
+                        .into_iter()
+                        .map(Into::into)
+                        .collect(),
+                },
+            ))
+        },
+    )
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn set_group_locked(task_id: u64, callback: FfiCallback, ptr: *const u8, len: usize) {
+    c::queue_blocking_with_message(
+        task_id,
+        callback,
+        ptr,
+        len,
+        |msg: generated_proto::SetLocked| sql::set_group_locked(msg.id, msg.locked),
+    )
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn set_source_locked(task_id: u64, callback: FfiCallback, ptr: *const u8, len: usize) {
+    c::queue_blocking_with_message(
+        task_id,
+        callback,
+        ptr,
+        len,
+        |msg: generated_proto::SetLocked| sql::set_source_locked(msg.id, msg.locked),
+    )
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn get_epg_now_next(task_id: u64, callback: FfiCallback, ptr: *const u8, len: usize) {
+    c::queue_async_with_message(
+        task_id,
+        callback,
+        ptr,
+        len,
+        |ids: generated_proto::IdList| async move {
+            Ok(generated_proto::ffi_result::Data::EpgNowNext(
+                generated_proto::EpgNowNextList {
+                    items: epg::get_now_next(ids.ids)
+                        .await?
+                        .into_iter()
+                        .map(Into::into)
+                        .collect(),
+                },
+            ))
+        },
+    )
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn get_epg_programs(task_id: u64, callback: FfiCallback, ptr: *const u8, len: usize) {
+    c::queue_async_with_message(
+        task_id,
+        callback,
+        ptr,
+        len,
+        |id: generated_proto::IdMessage| async move {
+            Ok(generated_proto::ffi_result::Data::EpgPrograms(
+                generated_proto::EpgProgramList {
+                    programs: epg::get_programs(id.value)
+                        .await?
+                        .into_iter()
+                        .map(Into::into)
+                        .collect(),
+                },
+            ))
+        },
+    )
 }
 
 #[unsafe(no_mangle)]

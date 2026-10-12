@@ -24,6 +24,8 @@ pub struct Channel {
     pub season_id: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub episode_num: Option<i64>,
+    #[serde(default)]
+    pub locked: bool,
 }
 
 #[derive(Clone, PartialEq, Debug, Deserialize, Serialize, Default)]
@@ -55,6 +57,8 @@ pub struct Source {
     pub stream_user_agent: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_updated: Option<i64>,
+    #[serde(default)]
+    pub locked: bool,
 }
 
 #[derive(Clone, PartialEq, Debug, Deserialize, Serialize)]
@@ -76,6 +80,8 @@ pub struct Settings {
     pub show_continue_watching: Option<bool>,
     pub autoplay_next_episode: Option<bool>,
     pub autoplay_countdown_seconds: Option<u32>,
+    pub show_epg: Option<bool>,
+    pub parental_pin: Option<String>,
 }
 
 #[derive(Clone, PartialEq, Debug, Deserialize, Serialize)]
@@ -91,6 +97,7 @@ pub struct Filters {
     pub sort: u8,
     pub season: Option<i64>,
     pub favorite_list_id: Option<i64>,
+    pub include_locked: bool,
 }
 
 #[derive(Clone, PartialEq, Debug, Deserialize, Serialize, Default)]
@@ -154,11 +161,38 @@ pub struct Backup {
     pub channels: Vec<BackupChannel>,
     #[serde(default)]
     pub positions: Vec<BackupPosition>,
+    #[serde(default)]
+    pub locked_groups: Vec<BackupLockedGroup>,
+}
+
+#[derive(Clone, PartialEq, Debug, Deserialize, Serialize)]
+pub struct BackupLockedGroup {
+    pub source: String,
+    pub name: String,
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub struct EpgProgram {
+    pub title: String,
+    pub description: Option<String>,
+    pub start: i64,
+    pub stop: i64,
+    pub has_archive: bool,
+    pub catchup_url: Option<String>,
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub struct EpgNowNext {
+    pub channel_id: i64,
+    pub now: Option<EpgProgram>,
+    pub next: Option<EpgProgram>,
 }
 
 #[derive(Clone, PartialEq, Debug, Deserialize, Serialize)]
 pub struct BackupSource {
     pub name: String,
+    #[serde(default)]
+    pub locked: bool,
     pub source_type: u8,
     pub url: Option<String>,
     pub username: Option<String>,

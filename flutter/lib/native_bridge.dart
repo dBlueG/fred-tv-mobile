@@ -10,6 +10,7 @@ import 'generated/generated_proto.pb.dart' as pb;
 import 'generated/bindings.dart' as ffi;
 import 'package:open_tv/models/channel.dart';
 import 'package:open_tv/models/continue_watching_item.dart';
+import 'package:open_tv/models/epg.dart';
 import 'package:open_tv/models/favorite_list.dart';
 import 'package:open_tv/models/source.dart';
 import 'package:open_tv/models/filters.dart';
@@ -301,10 +302,15 @@ class NativeBridge {
     });
   }
 
-  Future<List<ContinueWatchingItem>> getContinueWatching() async {
-    final result = await _executeAsync((id, cb) {
-      _bindings.get_continue_watching(id, cb);
-    });
+  Future<List<ContinueWatchingItem>> getContinueWatching(
+    bool includeLocked,
+  ) async {
+    final result = await _executeWithMsg(
+      pb.BoolMessage(value: includeLocked),
+      (id, ptr, len, cb) {
+        _bindings.get_continue_watching(id, cb, ptr, len);
+      },
+    );
     return result.continueWatching.items.map((i) => i.toDomain()).toList();
   }
 
@@ -318,6 +324,49 @@ class NativeBridge {
       _bindings.get_next_episode(id, cb, ptr, len);
     });
     return result.hasChannel() ? result.channel.toDomain() : null;
+  }
+
+  Future<void> setGroupLocked(int groupId, bool locked) async {
+    await _executeWithMsg(
+      pb.SetLocked(id: Int64(groupId), locked: locked),
+      (id, ptr, len, cb) {
+        _bindings.set_group_locked(id, cb, ptr, len);
+      },
+    );
+  }
+
+  Future<void> setSourceLocked(int sourceId, bool locked) async {
+    await _executeWithMsg(
+      pb.SetLocked(id: Int64(sourceId), locked: locked),
+      (id, ptr, len, cb) {
+        _bindings.set_source_locked(id, cb, ptr, len);
+      },
+    );
+  }
+
+  // Now/next for the Xtream livestreams among these channels, by channel id.
+  Future<Map<int, EpgNowNext>> getEpgNowNext(List<int> channelIds) async {
+    final result = await _executeWithMsg(
+      pb.IdList(ids: channelIds.map(Int64.new)),
+      (id, ptr, len, cb) {
+        _bindings.get_epg_now_next(id, cb, ptr, len);
+      },
+    );
+    return {
+      for (final item in result.epgNowNext.items)
+        item.channelId.toInt(): item.toDomain(),
+    };
+  }
+
+  // The channel's guide, including programmes available for catch-up.
+  Future<List<EpgProgram>> getEpgPrograms(int channelId) async {
+    final result = await _executeWithMsg(
+      pb.IdMessage(value: Int64(channelId)),
+      (id, ptr, len, cb) {
+        _bindings.get_epg_programs(id, cb, ptr, len);
+      },
+    );
+    return result.epgPrograms.programs.map((p) => p.toDomain()).toList();
   }
 
   Future<String> exportBackup() async {

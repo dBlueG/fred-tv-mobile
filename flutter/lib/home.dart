@@ -10,6 +10,8 @@ import 'package:open_tv/favorite_list_bar.dart';
 import 'package:open_tv/loading.dart';
 import 'package:open_tv/models/channel.dart';
 import 'package:open_tv/models/channel_playlist.dart';
+import 'package:open_tv/models/epg.dart';
+import 'package:open_tv/models/media_type.dart';
 import 'package:open_tv/models/filters.dart';
 import 'package:open_tv/models/home_manager.dart';
 import 'package:open_tv/models/id_data.dart';
@@ -50,6 +52,10 @@ class _HomeState extends State<Home> {
   bool isLoading = false;
   int? previousScroll;
   bool scrolledDeepEnough = false;
+  bool showEpg = false;
+  // Now/next by channel id, for the loaded livestreams.
+  final Map<int, EpgNowNext> epg = {};
+  Timer? _epgTimer;
 
   @override
   void initState() {
@@ -62,6 +68,15 @@ class _HomeState extends State<Home> {
   }
 
   Future<void> initializeAsync() async {
+    showEpg = (await NativeBridge.instance.getSettings()).showEpg;
+    if (showEpg) {
+      // Keeps progress bars moving and refetches programmes that have ended.
+      _epgTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+        if (!mounted) return;
+        setState(() {});
+        _loadEpg(stale: true);
+      });
+    }
     if (widget.home.filters.sourceIds == null) {
       final sources = await NativeBridge.instance.getEnabledSourcesMinimal();
       widget.home.filters.sourceIds = sources;
@@ -132,12 +147,42 @@ class _HomeState extends State<Home> {
       }
       reachedMax = channels.length < pageSize;
     });
+    _loadEpg();
+  }
+
+  // Fetches now/next for loaded livestreams without one (or, with `stale`,
+  // whose current programme has ended). Non-Xtream channels return nothing.
+  Future<void> _loadEpg({bool stale = false}) async {
+    if (!showEpg) return;
+    final time = DateTime.now();
+    final ids = channels
+        .where((c) => c.mediaType == MediaType.livestream && c.id != null)
+        .where((c) {
+          final e = epg[c.id];
+          if (e == null) return !stale;
+          if (!stale) return false;
+          return e.now != null ? !e.now!.isOnAt(time) : e.next?.startTime.isBefore(time) == true;
+        })
+        .map((c) => c.id!)
+        .toList();
+    if (ids.isEmpty) return;
+    final result = await Error.tryAsyncNoLoading(
+      () => NativeBridge.instance.getEpgNowNext(ids),
+    );
+    if (!mounted || result.data == null) return;
+    setState(() {
+      for (final id in ids) {
+        // Remember channels without a guide so they aren't asked again.
+        epg[id] = result.data![id] ?? EpgNowNext(channelId: id);
+      }
+    });
   }
 
   @override
   void dispose() {
     _scrollController.dispose();
     _debounce?.cancel();
+    _epgTimer?.cancel();
     _searchFocusNode.dispose();
     _keywordsFocusNode.dispose();
     _sortFocusNode.dispose();
@@ -446,6 +491,7 @@ class _HomeState extends State<Home> {
                           onFavoriteChanged: _isFavoritesView
                               ? () => load(false)
                               : null,
+                          epg: epg[channel.id],
                           playlist: () => ChannelPlaylist.create(
                             filters: widget.home.filters,
                             channels: channels,

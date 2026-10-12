@@ -16,6 +16,8 @@ message Channel {
   optional bool tv_archive = 12;
   optional int64 season_id = 13;
   optional int64 episode_num = 14;
+  // Categories and sources hidden by the parental PIN
+  bool locked = 15;
 }
 
 message ChannelList {
@@ -34,6 +36,7 @@ message Source {
   optional string user_agent = 10;
   optional string stream_user_agent = 12;
   optional int64 last_updated = 13;
+  bool locked = 14;
 }
 
 message Settings {
@@ -54,6 +57,8 @@ message Settings {
   optional bool show_continue_watching = 15;
   optional bool autoplay_next_episode = 16;
   optional uint32 autoplay_countdown_seconds = 17;
+  optional bool show_epg = 18;
+  optional string parental_pin = 19;
 }
 
 enum MediaType {
@@ -84,6 +89,7 @@ message Filters {
   uint32 sort = 9;
   optional int64 season = 10;
   optional int64 favorite_list_id = 11;
+  bool include_locked = 12;
 }
 
 message ToggleFavorite {
@@ -130,6 +136,34 @@ message ContinueWatchingItem {
   int64 position = 2;
   optional int64 duration = 3;
   optional string series_name = 4;
+}
+
+message EpgProgram {
+  string title = 1;
+  optional string description = 2;
+  int64 start = 3;
+  int64 stop = 4;
+  bool has_archive = 5;
+  optional string catchup_url = 6;
+}
+
+message EpgNowNext {
+  int64 channel_id = 1;
+  optional EpgProgram now = 2;
+  optional EpgProgram next = 3;
+}
+
+message EpgNowNextList {
+  repeated EpgNowNext items = 1;
+}
+
+message EpgProgramList {
+  repeated EpgProgram programs = 1;
+}
+
+message SetLocked {
+  int64 id = 1;
+  bool locked = 2;
 }
 
 message ContinueWatchingList {
@@ -208,6 +242,8 @@ message FFIResult {
     StrMessage str_message = 16;
     ContinueWatchingList continue_watching = 17;
     Channel channel = 18;
+    EpgNowNextList epg_now_next = 19;
+    EpgProgramList epg_programs = 20;
   }
 }
 

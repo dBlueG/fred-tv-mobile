@@ -4,7 +4,7 @@ use anyhow::{Context, Result, anyhow};
 
 use crate::{
     sql,
-    types::{Backup, BackupChannel, BackupPosition, BackupSource, Source},
+    types::{Backup, BackupChannel, BackupLockedGroup, BackupPosition, BackupSource, Source},
     utils,
 };
 
@@ -16,13 +16,19 @@ const BACKUP_VERSION: u32 = 1;
 pub fn export_backup() -> Result<String> {
     let mut settings = sql::get_settings()?;
     settings.remove(sql::LAST_SEEN_VERSION_KEY);
+    let sources = sql::get_sources()?;
+    let source_names: HashMap<i64, String> = sources
+        .iter()
+        .filter_map(|s| s.id.map(|id| (id, s.name.clone())))
+        .collect();
     let backup = Backup {
         app: APP_ID.to_string(),
         version: BACKUP_VERSION,
         created_at: chrono::Utc::now().timestamp(),
-        sources: sql::get_sources()?
+        sources: sources
             .into_iter()
             .map(|s| BackupSource {
+                locked: s.locked,
                 name: s.name,
                 source_type: s.source_type,
                 url: s.url,
@@ -40,6 +46,15 @@ pub fn export_backup() -> Result<String> {
             .collect(),
         channels: sql::get_backup_channels()?,
         positions: sql::get_backup_positions()?,
+        locked_groups: sql::get_locked_groups()?
+            .into_iter()
+            .filter_map(|(source_id, name)| {
+                Some(BackupLockedGroup {
+                    source: source_names.get(&source_id)?.clone(),
+                    name,
+                })
+            })
+            .collect(),
     };
     Ok(serde_json::to_string_pretty(&backup)?)
 }
@@ -100,6 +115,17 @@ pub async fn import_backup(json: String) -> Result<String> {
         }
     }
 
+    for backup_source in backup.sources.iter().filter(|s| s.locked) {
+        if let Some(id) = source_ids.get(&backup_source.name) {
+            sql::set_source_locked(*id, true)?;
+        }
+    }
+    for group in &backup.locked_groups {
+        if let Some(id) = source_ids.get(&group.source) {
+            sql::lock_group_by_name(*id, &group.name)?;
+        }
+    }
+
     for (name, id) in &source_ids {
         let channels: Vec<&BackupChannel> =
             backup.channels.iter().filter(|c| &c.source == name).collect();
@@ -139,6 +165,7 @@ fn to_source(source: &BackupSource) -> Source {
         user_agent: source.user_agent.clone(),
         stream_user_agent: source.stream_user_agent.clone(),
         last_updated: None,
+        locked: source.locked,
     }
 }
 

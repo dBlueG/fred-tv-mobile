@@ -18,11 +18,13 @@ class ExoPlayerScreen extends StatefulWidget {
   final Channel channel;
   final Settings settings;
   final ChannelPlaylist? playlist;
+  final bool catchup;
   const ExoPlayerScreen({
     super.key,
     required this.channel,
     required this.settings,
     this.playlist,
+    this.catchup = false,
   });
 
   @override
@@ -61,7 +63,7 @@ class _ExoPlayerScreenState extends State<ExoPlayerScreen> {
   Future<void> _init() async {
     final headers = await _getHeaders(widget.channel);
     final settings = widget.settings;
-    final seconds = widget.channel.mediaType == MediaType.movie
+    final seconds = widget.channel.mediaType == MediaType.movie && !widget.catchup
         ? (await Error.tryAsyncNoLoading(() async {
             return await NativeBridge.instance.getMoviePosition(
               widget.channel.id!,
@@ -173,7 +175,9 @@ class _ExoPlayerScreenState extends State<ExoPlayerScreen> {
   Future<void> _onExit() async {
     if (_exiting) return;
     _exiting = true;
-    if (_current.mediaType == MediaType.movie && _channel != null) {
+    if (_current.mediaType == MediaType.movie &&
+        !widget.catchup &&
+        _channel != null) {
       try {
         final posMs = await _channel!.invokeMethod<int>("getPosition") ?? 0;
         final durationMs =

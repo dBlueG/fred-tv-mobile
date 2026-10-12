@@ -18,7 +18,14 @@ import 'package:open_tv/error.dart';
 class Player extends StatefulWidget {
   final Channel channel;
   final Settings settings;
-  const Player({super.key, required this.channel, required this.settings});
+  // A catch-up programme: no resume position is read or saved.
+  final bool catchup;
+  const Player({
+    super.key,
+    required this.channel,
+    required this.settings,
+    this.catchup = false,
+  });
   @override
   State<StatefulWidget> createState() => _PlayerState();
 }
@@ -43,7 +50,7 @@ class _PlayerState extends State<Player> {
   Future<void> initAsync() async {
     player.setPlaylistMode(mk.PlaylistMode.none);
     await setMpvOptions();
-    final seconds = widget.channel.mediaType == MediaType.movie
+    final seconds = widget.channel.mediaType == MediaType.movie && !widget.catchup
         ? (await Error.tryAsyncNoLoading(() async {
             return await NativeBridge.instance.getMoviePosition(
               widget.channel.id!,
@@ -210,7 +217,7 @@ class _PlayerState extends State<Player> {
   Future<void> onExit() async {
     if (exiting) return;
     exiting = true;
-    if (widget.channel.mediaType == MediaType.movie) {
+    if (widget.channel.mediaType == MediaType.movie && !widget.catchup) {
       TaskService.instance.setMoviePosition(
         widget.channel.id!,
         player.state.position.inSeconds,

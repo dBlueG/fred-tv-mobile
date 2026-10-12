@@ -1848,6 +1848,131 @@ class RustLibBindings {
         void Function(int, FfiCallback, ffi.Pointer<ffi.Uint8>, int)
       >();
 
+  void get_continue_watching(
+    int task_id,
+    FfiCallback callback,
+    ffi.Pointer<ffi.Uint8> ptr,
+    int len,
+  ) {
+    return _get_continue_watching(task_id, callback, ptr, len);
+  }
+
+  late final _get_continue_watchingPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Uint64,
+            FfiCallback,
+            ffi.Pointer<ffi.Uint8>,
+            ffi.Size,
+          )
+        >
+      >('get_continue_watching');
+  late final _get_continue_watching = _get_continue_watchingPtr
+      .asFunction<
+        void Function(int, FfiCallback, ffi.Pointer<ffi.Uint8>, int)
+      >();
+
+  void set_group_locked(
+    int task_id,
+    FfiCallback callback,
+    ffi.Pointer<ffi.Uint8> ptr,
+    int len,
+  ) {
+    return _set_group_locked(task_id, callback, ptr, len);
+  }
+
+  late final _set_group_lockedPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Uint64,
+            FfiCallback,
+            ffi.Pointer<ffi.Uint8>,
+            ffi.Size,
+          )
+        >
+      >('set_group_locked');
+  late final _set_group_locked = _set_group_lockedPtr
+      .asFunction<
+        void Function(int, FfiCallback, ffi.Pointer<ffi.Uint8>, int)
+      >();
+
+  void set_source_locked(
+    int task_id,
+    FfiCallback callback,
+    ffi.Pointer<ffi.Uint8> ptr,
+    int len,
+  ) {
+    return _set_source_locked(task_id, callback, ptr, len);
+  }
+
+  late final _set_source_lockedPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Uint64,
+            FfiCallback,
+            ffi.Pointer<ffi.Uint8>,
+            ffi.Size,
+          )
+        >
+      >('set_source_locked');
+  late final _set_source_locked = _set_source_lockedPtr
+      .asFunction<
+        void Function(int, FfiCallback, ffi.Pointer<ffi.Uint8>, int)
+      >();
+
+  void get_epg_now_next(
+    int task_id,
+    FfiCallback callback,
+    ffi.Pointer<ffi.Uint8> ptr,
+    int len,
+  ) {
+    return _get_epg_now_next(task_id, callback, ptr, len);
+  }
+
+  late final _get_epg_now_nextPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Uint64,
+            FfiCallback,
+            ffi.Pointer<ffi.Uint8>,
+            ffi.Size,
+          )
+        >
+      >('get_epg_now_next');
+  late final _get_epg_now_next = _get_epg_now_nextPtr
+      .asFunction<
+        void Function(int, FfiCallback, ffi.Pointer<ffi.Uint8>, int)
+      >();
+
+  void get_epg_programs(
+    int task_id,
+    FfiCallback callback,
+    ffi.Pointer<ffi.Uint8> ptr,
+    int len,
+  ) {
+    return _get_epg_programs(task_id, callback, ptr, len);
+  }
+
+  late final _get_epg_programsPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Uint64,
+            FfiCallback,
+            ffi.Pointer<ffi.Uint8>,
+            ffi.Size,
+          )
+        >
+      >('get_epg_programs');
+  late final _get_epg_programs = _get_epg_programsPtr
+      .asFunction<
+        void Function(int, FfiCallback, ffi.Pointer<ffi.Uint8>, int)
+      >();
+
   void remove_movie_position(
     int task_id,
     FfiCallback callback,
@@ -1872,17 +1997,6 @@ class RustLibBindings {
       .asFunction<
         void Function(int, FfiCallback, ffi.Pointer<ffi.Uint8>, int)
       >();
-
-  void get_continue_watching(int task_id, FfiCallback callback) {
-    return _get_continue_watching(task_id, callback);
-  }
-
-  late final _get_continue_watchingPtr =
-      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Uint64, FfiCallback)>>(
-        'get_continue_watching',
-      );
-  late final _get_continue_watching = _get_continue_watchingPtr
-      .asFunction<void Function(int, FfiCallback)>();
 
   void get_next_episode(
     int task_id,

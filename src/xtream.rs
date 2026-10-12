@@ -4,6 +4,7 @@ use crate::sql;
 use crate::sql::insert_season;
 use crate::types::Channel;
 use crate::types::ChannelPreserve;
+use crate::types::EpgProgram;
 use crate::types::Season;
 use crate::types::Source;
 use crate::types::XtreamStatus;
@@ -85,7 +86,7 @@ struct XtreamCategory {
     category_name: String,
 }
 
-fn build_xtream_url(source: &mut Source) -> Result<Url> {
+pub(crate) fn build_xtream_url(source: &mut Source) -> Result<Url> {
     let mut url = Url::parse(source.url.as_ref().context("Missing URL")?)?;
     source.url_origin = Some(url.origin().ascii_serialization());
     url.query_pairs_mut()
@@ -166,7 +167,7 @@ pub async fn get_xtream(mut source: Source, wipe: bool) -> Result<()> {
 }
 
 // One client per refresh so the parallel requests share connections.
-fn build_client(source: &Source) -> Result<Client> {
+pub(crate) fn build_client(source: &Source) -> Result<Client> {
     let user_agent = get_user_agent_from_source(source)?;
     Ok(Client::builder().user_agent(user_agent).build()?)
 }
@@ -255,6 +256,7 @@ fn convert_xtream_live_to_channel(
         tv_archive: get_serde_json_i64(&stream.tv_archive).map(|x| x == 1),
         season_id: None,
         episode_num: None,
+        locked: false,
     })
 }
 
@@ -475,12 +477,122 @@ fn episode_to_channel(
         )?),
         series_id: Some(series_id),
         episode_num: get_serde_json_i64(&episode.episode_num),
+        locked: false,
         season_id: Some(season_id),
         stream_id: None,
         group_id: None,
         favorite: false,
         tv_archive: None,
     })
+}
+
+const GET_SHORT_EPG: &str = "get_short_epg";
+const GET_SIMPLE_DATA_TABLE: &str = "get_simple_data_table";
+
+// Upcoming programmes, starting with the one on now.
+pub async fn get_short_epg(
+    client: &Client,
+    source: &Source,
+    stream_id: i64,
+    limit: u32,
+) -> Result<Vec<EpgProgram>> {
+    let mut source = source.clone();
+    let mut url = build_xtream_url(&mut source)?;
+    url.query_pairs_mut()
+        .append_pair("stream_id", &stream_id.to_string())
+        .append_pair("limit", &limit.to_string());
+    let data = get_xtream_http_data::<serde_json::Value>(client, url, GET_SHORT_EPG).await?;
+    Ok(parse_epg(&data, &source, stream_id))
+}
+
+// The channel's whole guide, including past programmes kept in the archive.
+pub async fn get_epg_table(source: &Source, stream_id: i64) -> Result<Vec<EpgProgram>> {
+    let mut source = source.clone();
+    let mut url = build_xtream_url(&mut source)?;
+    let client = build_client(&source)?;
+    url.query_pairs_mut()
+        .append_pair("stream_id", &stream_id.to_string());
+    let data =
+        get_xtream_http_data::<serde_json::Value>(&client, url, GET_SIMPLE_DATA_TABLE).await?;
+    Ok(parse_epg(&data, &source, stream_id))
+}
+
+// Providers send `epg_listings` as a list, or as {} / false when empty.
+// Titles and descriptions are base64.
+fn parse_epg(data: &serde_json::Value, source: &Source, stream_id: i64) -> Vec<EpgProgram> {
+    let Some(listings) = data.get("epg_listings").and_then(|l| l.as_array()) else {
+        return vec![];
+    };
+    let mut programs: Vec<EpgProgram> = listings
+        .iter()
+        .filter_map(|item| {
+            let start = get_serde_json_i64(item.get("start_timestamp")?)?;
+            let stop = get_serde_json_i64(item.get("stop_timestamp")?)?;
+            let has_archive = item
+                .get("has_archive")
+                .and_then(get_serde_json_i64)
+                .is_some_and(|a| a == 1);
+            let catchup_url = match has_archive {
+                true => timeshift_url(source, stream_id, item.get("start"), start, stop).ok(),
+                false => None,
+            };
+            Some(EpgProgram {
+                title: decode_epg_text(item.get("title"))?,
+                description: decode_epg_text(item.get("description")),
+                start,
+                stop,
+                has_archive,
+                catchup_url,
+            })
+        })
+        .collect();
+    programs.sort_by_key(|p| p.start);
+    programs
+}
+
+fn decode_epg_text(value: Option<&serde_json::Value>) -> Option<String> {
+    use base64::Engine;
+    let raw = value?.as_str()?.trim();
+    if raw.is_empty() {
+        return None;
+    }
+    let text = base64::engine::general_purpose::STANDARD
+        .decode(raw)
+        .ok()
+        .and_then(|bytes| String::from_utf8(bytes).ok())
+        .unwrap_or_else(|| raw.to_string());
+    Some(text.trim().to_string()).filter(|t| !t.is_empty())
+}
+
+// {origin}/timeshift/{user}/{pass}/{minutes}/{YYYY-MM-DD:HH-MM}/{stream}.ts
+// The start uses the programme's "start" text, which is in the server's own
+// time zone, as providers expect; the UTC timestamp is only a fallback.
+fn timeshift_url(
+    source: &Source,
+    stream_id: i64,
+    start_text: Option<&serde_json::Value>,
+    start: i64,
+    stop: i64,
+) -> Result<String> {
+    let start_param = start_text
+        .and_then(|s| s.as_str())
+        .filter(|s| s.len() >= 16)
+        .map(|s| format!("{}:{}", &s[0..10], s[11..16].replace(':', "-")))
+        .or_else(|| {
+            chrono::DateTime::from_timestamp(start, 0)
+                .map(|d| d.format("%Y-%m-%d:%H-%M").to_string())
+        })
+        .context("invalid programme start")?;
+    let minutes = ((stop - start) as f64 / 60.0).ceil().max(1.0) as i64;
+    Ok(format!(
+        "{}/timeshift/{}/{}/{}/{}/{}.ts",
+        source.url_origin.as_deref().context("missing url_origin")?,
+        source.username.as_deref().context("missing username")?,
+        source.password.as_deref().context("missing password")?,
+        minutes,
+        start_param,
+        stream_id
+    ))
 }
 
 async fn get_status(source: &mut Source) -> Result<(i64, XtreamStatus)> {
@@ -504,4 +616,50 @@ pub async fn get_all_expiries() -> Result<HashMap<i64, i64>> {
         })
         .collect();
     Ok(statuses)
+}
+
+#[cfg(test)]
+mod test_epg {
+    use super::*;
+
+    fn source() -> Source {
+        Source {
+            id: Some(1),
+            name: "x".to_string(),
+            url: Some("http://host:8080/player_api.php".to_string()),
+            url_origin: Some("http://host:8080".to_string()),
+            username: Some("u".to_string()),
+            password: Some("p".to_string()),
+            source_type: source_type::XTREAM,
+            enabled: true,
+            user_agent: None,
+            stream_user_agent: None,
+            last_updated: None,
+            locked: false,
+        }
+    }
+
+    #[test]
+    fn parses_listings_and_builds_timeshift_urls() {
+        let data = serde_json::json!({
+            "epg_listings": [
+                {"title": "TmV3cyBhdCA4", "description": "", "start": "2026-10-12 20:00:00",
+                 "start_timestamp": "1791835200", "stop_timestamp": 1791837000, "has_archive": 1},
+                {"title": "plain title", "start_timestamp": "1791830000", "stop_timestamp": "1791835200"},
+                {"title": "no times"}
+            ]
+        });
+        let programs = parse_epg(&data, &source(), 42);
+        assert_eq!(programs.len(), 2);
+        assert_eq!(programs[0].title, "plain title");
+        assert!(programs[0].catchup_url.is_none());
+        assert_eq!(programs[1].title, "News at 8");
+        assert_eq!(programs[1].description, None);
+        assert_eq!(
+            programs[1].catchup_url.as_deref(),
+            Some("http://host:8080/timeshift/u/p/30/2026-10-12:20-00/42.ts")
+        );
+        assert!(parse_epg(&serde_json::json!({"epg_listings": false}), &source(), 1).is_empty());
+        assert!(parse_epg(&serde_json::json!([]), &source(), 1).is_empty());
+    }
 }

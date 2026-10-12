@@ -10,6 +10,8 @@ class Source {
   SourceType sourceType;
   bool enabled;
   int? lastUpdated;
+  // Hidden by the parental PIN
+  bool locked;
 
   Source({
     this.id,
@@ -21,5 +23,6 @@ class Source {
     required this.sourceType,
     this.enabled = true,
     this.lastUpdated,
+    this.locked = false,
   });
 }

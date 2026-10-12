@@ -21,6 +21,8 @@ pub const KEEP_AUDIO_AFTER_PIP: &str = "keepAudioAfterPip";
 pub const SHOW_CONTINUE_WATCHING: &str = "showContinueWatching";
 pub const AUTOPLAY_NEXT_EPISODE: &str = "autoplayNextEpisode";
 pub const AUTOPLAY_COUNTDOWN_SECONDS: &str = "autoplayCountdownSeconds";
+pub const SHOW_EPG: &str = "showEpg";
+pub const PARENTAL_PIN: &str = "parentalPin";
 
 pub fn get_settings() -> Result<Settings> {
     let map = sql::get_settings()?;
@@ -48,6 +50,8 @@ pub fn get_settings() -> Result<Settings> {
         autoplay_countdown_seconds: map
             .get(AUTOPLAY_COUNTDOWN_SECONDS)
             .and_then(|s| s.parse().ok()),
+        show_epg: map.get(SHOW_EPG).and_then(|s| s.parse().ok()),
+        parental_pin: map.get(PARENTAL_PIN).filter(|s| !s.is_empty()).cloned(),
     };
     Ok(settings)
 }
@@ -101,6 +105,9 @@ pub fn update_settings(settings: Settings) -> Result<()> {
         AUTOPLAY_COUNTDOWN_SECONDS,
         settings.autoplay_countdown_seconds,
     );
+    insert_opt(&mut map, SHOW_EPG, settings.show_epg);
+    // An empty PIN removes it.
+    insert_opt(&mut map, PARENTAL_PIN, settings.parental_pin);
     sql::update_settings(map)?;
     Ok(())
 }

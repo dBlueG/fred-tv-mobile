@@ -16,6 +16,7 @@ project (`Fredolx/fred-tv-mobile`).
 | 9 | [Faster Xtream refresh](#9-faster-xtream-refresh) | 2026-10-09 | Rust core |
 | 10 | [Player settings, channel switching, double-tap seek, sleep timer](#10-player-settings-channel-switching-double-tap-seek-sleep-timer) | 2026-10-12 | Android player, settings |
 | 11 | [Continue Watching, auto-play next episode, backup and restore](#11-continue-watching-auto-play-next-episode-backup-and-restore) | 2026-10-12 | Rust core, Flutter UI, Android player |
+| 12 | [Programme guide (now/next), catch-up, parental PIN](#12-programme-guide-nownext-catch-up-parental-pin) | 2026-10-12 | Rust core, Flutter UI |
 
 Changes 1–4 and 6 only affect the Android app. iOS, macOS, Windows and Linux
 use `media_kit` for playback, so their players are unchanged. Change 7 is in the
@@ -817,3 +818,104 @@ playing (not after the end). Layout `next_episode_overlay`, drawables
   is opened. Their positions are kept, but they're missing from Continue Watching
   until then.
 - Backups contain provider passwords in plain text.
+
+---
+
+## 12. Programme guide (now/next), catch-up, parental PIN
+
+**Date:** 2026-10-12
+**Branch:** `player-and-home-features`
+**Status:** Rust tests pass; smoke-tested on the Android emulator against the mock
+Xtream server (now/next on tiles, catch-up list and playback, PIN set / wrong PIN /
+unlock, locked category hidden from All and Categories, lock kept after restart).
+Not yet tested on the vivo or against a real provider's EPG.
+
+### Behavior
+
+**Now/next on channel tiles (Xtream livestreams).** Tiles show the programme on
+now (start time, title, progress bar) and the next one. Progress updates every
+minute, and ended programmes are refetched. Setting: **Show programme info** (on).
+- Data comes from Xtream `get_short_epg` (4 programmes per channel), only for the
+  livestreams loaded on screen. Requests run 6 at a time and are cached in memory
+  for 30 minutes per (source, stream), or until the cached programmes run out.
+- Base64 titles and descriptions are decoded. Providers that send
+  `epg_listings: {}` / `false` are treated as "no guide", and those channels
+  aren't asked again during the session.
+- M3U sources have no guide yet (their `url-tvg` XMLTV files are not read).
+
+**Catch-up (Xtream `tv_archive` channels).** These tiles show a ⟲ icon.
+Long-press (or hold OK on a remote) offers **Favorites** or **Catch-up**. The
+catch-up screen lists **Watch live** (with what's on now), the next 3 programmes
+(not playable), and past programmes kept in the archive, newest first, grouped by
+day. Tapping a past programme plays it as a seekable video.
+- Guide from `get_simple_data_table`. Programmes with `has_archive = 1` get a URL
+  `{origin}/timeshift/{user}/{pass}/{minutes}/{YYYY-MM-DD:HH-MM}/{stream_id}.ts`.
+  The start uses the programme's `start` text, which is in the server's own time
+  zone (what providers expect), not the device's.
+- Catch-up playback isn't added to History and saves no resume position.
+
+**Parental PIN.** Settings → Parental control:
+- **Set PIN** (4–8 digits, entered twice). Once set: **Lock now** / **Show locked
+  content** (asks for the PIN; content stays visible until the app restarts or
+  Lock now), **Locked categories** (searchable list of all categories with
+  switches), **Change PIN**, **Remove PIN** (both ask for the current PIN).
+- **Locking a source:** tap a source in Settings → **Lock**. Locked sources show
+  a lock icon.
+- While locked, content of locked categories and sources is hidden everywhere: All,
+  Categories, Favorites (and lists), History, search, Continue Watching, and
+  channel switching in the player.
+- Locks are stored by source and category **name** (`locked_groups`), so they
+  survive refreshes. Removing the PIN shows everything again but keeps the lock
+  choices for when a PIN is set again.
+- The PIN is stored in the settings database in plain text. It keeps children
+  out; it isn't meant to stop someone with access to the device's files. Backups
+  include the PIN, locked sources and locked categories.
+
+### File changes
+
+**Rust (`src/`)**
+- `epg.rs` (new): `get_now_next(channel_ids)` with the cache and parallel
+  requests; `get_programs(channel_id)` for catch-up.
+- `xtream.rs`: `get_short_epg`, `get_epg_table`, `parse_epg`, `decode_epg_text`,
+  `timeshift_url`; `build_xtream_url` / `build_client` are now `pub(crate)`.
+  Test `test_epg`.
+- `sql.rs`: sixth migration (`locked_groups`, `sources.locked`);
+  `unlocked_channels_sql` applied in `search`, `search_group` (also returns a
+  `locked` flag per category) and `get_continue_watching(include_locked)`;
+  `set_group_locked`, `set_source_locked`, `get_locked_groups`,
+  `lock_group_by_name`, `get_epg_targets`; `delete_source` clears its locks.
+  Test `test_parental_locks`.
+- `backup.rs`: exports and restores locked sources and categories.
+- `types.rs`: `Channel.locked`, `Source.locked`, `Filters.include_locked`,
+  `EpgProgram`, `EpgNowNext`, `BackupLockedGroup`, settings `show_epg` and
+  `parental_pin`. `lib.rs`: FFI `set_group_locked`, `set_source_locked`,
+  `get_epg_now_next`, `get_epg_programs`; `get_continue_watching` now takes a
+  `BoolMessage` (include locked).
+
+**Proto:** `EpgProgram`, `EpgNowNext(List)`, `EpgProgramList`, `SetLocked`;
+`Channel.locked`, `Source.locked`, `Filters.include_locked`, settings 18–19;
+`FFIResult` `epg_now_next`, `epg_programs`. Bindings updated by hand. Android `.so`
+libraries rebuilt.
+
+**Flutter (`flutter/lib/`)**
+- `parental.dart` (new): `ParentalControl` (PIN state, unlock/verify/new PIN
+  dialogs). `Filters.toProto()` sends `includeLocked` from it; `main.dart` loads
+  it at start.
+- `catchup_view.dart` (new), `locked_categories_view.dart` (new),
+  `models/epg.dart` (new).
+- `home.dart`: loads now/next for loaded livestreams and refreshes it every minute.
+- `channel_tile.dart`: now/next lines, catch-up icon, long-press menu for archive
+  channels.
+- `playback.dart`, `exo_player.dart`, `player.dart`: `catchup` flag (no history,
+  no positions).
+- `settings_view.dart`: Show programme info, Parental control section, Lock/Unlock
+  in source actions.
+
+### Not covered
+
+- Real providers' EPG time zones and timeshift URL variants differ. Some only
+  support `/streaming/timeshift.php?...`; only the `/timeshift/...` path form is
+  implemented.
+- No full guide grid yet; the catch-up screen covers one channel at a time.
+- TV mode wasn't exercised on an Android TV image; the new screens use standard
+  focusable list tiles.
