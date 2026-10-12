@@ -82,6 +82,16 @@ extension SettingsProtoExtension on pb.Settings {
     showLivestreams: hasShowLivestreams() ? showLivestreams : true,
     showMovies: hasShowMovies() ? showMovies : true,
     showSeries: hasShowSeries() ? showSeries : true,
+    volumeBrightnessGestures: hasVolumeBrightnessGestures()
+        ? volumeBrightnessGestures
+        : true,
+    swipeToChangeChannel: hasSwipeToChangeChannel()
+        ? swipeToChangeChannel
+        : true,
+    doubleTapSeek: hasDoubleTapSeek() ? doubleTapSeek : true,
+    seekSeconds: hasSeekSeconds() ? seekSeconds : 10,
+    pictureInPicture: hasPictureInPicture() ? pictureInPicture : true,
+    keepAudioAfterPip: hasKeepAudioAfterPip() ? keepAudioAfterPip : false,
   );
 }
 
@@ -95,6 +105,12 @@ extension SettingsDomainExtension on Settings {
     showLivestreams: showLivestreams,
     showMovies: showMovies,
     showSeries: showSeries,
+    volumeBrightnessGestures: volumeBrightnessGestures,
+    swipeToChangeChannel: swipeToChangeChannel,
+    doubleTapSeek: doubleTapSeek,
+    seekSeconds: seekSeconds,
+    pictureInPicture: pictureInPicture,
+    keepAudioAfterPip: keepAudioAfterPip,
   );
 }
 

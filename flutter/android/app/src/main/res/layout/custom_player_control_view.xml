@@ -82,6 +82,12 @@
                 style="@style/ExoStyledControls.Button.Bottom.CC" />
 
             <ImageButton
+                android:id="@+id/sleep_button"
+                style="@style/ExoStyledControls.Button.Bottom"
+                android:contentDescription="@string/sleep_timer"
+                android:src="@drawable/ic_player_timer" />
+
+            <ImageButton
                 android:id="@+id/audio_button"
                 style="@style/ExoStyledControls.Button.Bottom"
                 android:contentDescription="@string/exo_audio"

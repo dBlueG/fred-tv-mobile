@@ -43,4 +43,46 @@
             android:progressTint="@android:color/white"
             android:progressBackgroundTint="#66FFFFFF" />
     </LinearLayout>
+
+    <TextView
+        android:id="@+id/channel_indicator"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|center_horizontal"
+        android:layout_marginTop="32dp"
+        android:background="@drawable/bg_player_indicator"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:maxWidth="480dp"
+        android:paddingHorizontal="24dp"
+        android:paddingVertical="10dp"
+        android:textColor="@android:color/white"
+        android:textSize="20sp"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/seek_indicator_back"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_vertical|start"
+        android:layout_marginStart="160dp"
+        android:background="@drawable/bg_player_indicator"
+        android:paddingHorizontal="20dp"
+        android:paddingVertical="10dp"
+        android:textColor="@android:color/white"
+        android:textSize="18sp"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/seek_indicator_forward"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_vertical|end"
+        android:layout_marginEnd="160dp"
+        android:background="@drawable/bg_player_indicator"
+        android:paddingHorizontal="20dp"
+        android:paddingVertical="10dp"
+        android:textColor="@android:color/white"
+        android:textSize="18sp"
+        android:visibility="gone" />
 </dev.fredol.open_tv.PlayerGestureLayout>

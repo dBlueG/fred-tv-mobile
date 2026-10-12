@@ -469,6 +469,12 @@ class Settings extends $pb.GeneratedMessage {
     $core.bool? showLivestreams,
     $core.bool? showMovies,
     $core.bool? showSeries,
+    $core.bool? volumeBrightnessGestures,
+    $core.bool? swipeToChangeChannel,
+    $core.bool? doubleTapSeek,
+    $core.int? seekSeconds,
+    $core.bool? pictureInPicture,
+    $core.bool? keepAudioAfterPip,
   }) {
     final result = create();
     if (useStreamCaching != null) result.useStreamCaching = useStreamCaching;
@@ -479,6 +485,14 @@ class Settings extends $pb.GeneratedMessage {
     if (showLivestreams != null) result.showLivestreams = showLivestreams;
     if (showMovies != null) result.showMovies = showMovies;
     if (showSeries != null) result.showSeries = showSeries;
+    if (volumeBrightnessGestures != null)
+      result.volumeBrightnessGestures = volumeBrightnessGestures;
+    if (swipeToChangeChannel != null)
+      result.swipeToChangeChannel = swipeToChangeChannel;
+    if (doubleTapSeek != null) result.doubleTapSeek = doubleTapSeek;
+    if (seekSeconds != null) result.seekSeconds = seekSeconds;
+    if (pictureInPicture != null) result.pictureInPicture = pictureInPicture;
+    if (keepAudioAfterPip != null) result.keepAudioAfterPip = keepAudioAfterPip;
     return result;
   }
 
@@ -506,6 +520,13 @@ class Settings extends $pb.GeneratedMessage {
     ..aOB(6, _omitFieldNames ? '' : 'showLivestreams')
     ..aOB(7, _omitFieldNames ? '' : 'showMovies')
     ..aOB(8, _omitFieldNames ? '' : 'showSeries')
+    ..aOB(9, _omitFieldNames ? '' : 'volumeBrightnessGestures')
+    ..aOB(10, _omitFieldNames ? '' : 'swipeToChangeChannel')
+    ..aOB(11, _omitFieldNames ? '' : 'doubleTapSeek')
+    ..aI(12, _omitFieldNames ? '' : 'seekSeconds',
+        fieldType: $pb.PbFieldType.OU3)
+    ..aOB(13, _omitFieldNames ? '' : 'pictureInPicture')
+    ..aOB(14, _omitFieldNames ? '' : 'keepAudioAfterPip')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -597,6 +618,60 @@ class Settings extends $pb.GeneratedMessage {
   $core.bool hasShowSeries() => $_has(7);
   @$pb.TagNumber(8)
   void clearShowSeries() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $core.bool get volumeBrightnessGestures => $_getBF(8);
+  @$pb.TagNumber(9)
+  set volumeBrightnessGestures($core.bool value) => $_setBool(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasVolumeBrightnessGestures() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearVolumeBrightnessGestures() => $_clearField(9);
+
+  @$pb.TagNumber(10)
+  $core.bool get swipeToChangeChannel => $_getBF(9);
+  @$pb.TagNumber(10)
+  set swipeToChangeChannel($core.bool value) => $_setBool(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasSwipeToChangeChannel() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearSwipeToChangeChannel() => $_clearField(10);
+
+  @$pb.TagNumber(11)
+  $core.bool get doubleTapSeek => $_getBF(10);
+  @$pb.TagNumber(11)
+  set doubleTapSeek($core.bool value) => $_setBool(10, value);
+  @$pb.TagNumber(11)
+  $core.bool hasDoubleTapSeek() => $_has(10);
+  @$pb.TagNumber(11)
+  void clearDoubleTapSeek() => $_clearField(11);
+
+  @$pb.TagNumber(12)
+  $core.int get seekSeconds => $_getIZ(11);
+  @$pb.TagNumber(12)
+  set seekSeconds($core.int value) => $_setUnsignedInt32(11, value);
+  @$pb.TagNumber(12)
+  $core.bool hasSeekSeconds() => $_has(11);
+  @$pb.TagNumber(12)
+  void clearSeekSeconds() => $_clearField(12);
+
+  @$pb.TagNumber(13)
+  $core.bool get pictureInPicture => $_getBF(12);
+  @$pb.TagNumber(13)
+  set pictureInPicture($core.bool value) => $_setBool(12, value);
+  @$pb.TagNumber(13)
+  $core.bool hasPictureInPicture() => $_has(12);
+  @$pb.TagNumber(13)
+  void clearPictureInPicture() => $_clearField(13);
+
+  @$pb.TagNumber(14)
+  $core.bool get keepAudioAfterPip => $_getBF(13);
+  @$pb.TagNumber(14)
+  set keepAudioAfterPip($core.bool value) => $_setBool(13, value);
+  @$pb.TagNumber(14)
+  $core.bool hasKeepAudioAfterPip() => $_has(13);
+  @$pb.TagNumber(14)
+  void clearKeepAudioAfterPip() => $_clearField(14);
 }
 
 class Filters extends $pb.GeneratedMessage {

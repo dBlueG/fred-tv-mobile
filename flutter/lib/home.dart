@@ -8,6 +8,7 @@ import 'package:open_tv/channel_tile.dart';
 import 'package:open_tv/favorite_list_bar.dart';
 import 'package:open_tv/loading.dart';
 import 'package:open_tv/models/channel.dart';
+import 'package:open_tv/models/channel_playlist.dart';
 import 'package:open_tv/models/filters.dart';
 import 'package:open_tv/models/home_manager.dart';
 import 'package:open_tv/models/id_data.dart';
@@ -437,6 +438,12 @@ class _HomeState extends State<Home> {
                           onFavoriteChanged: _isFavoritesView
                               ? () => load(false)
                               : null,
+                          playlist: () => ChannelPlaylist.create(
+                            filters: widget.home.filters,
+                            channels: channels,
+                            current: channel,
+                            reachedEnd: reachedMax,
+                          ),
                         );
                       }, childCount: channels.length),
                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(

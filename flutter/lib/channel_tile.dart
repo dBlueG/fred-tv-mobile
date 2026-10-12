@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:open_tv/memory.dart';
 import 'package:open_tv/models/channel.dart';
+import 'package:open_tv/models/channel_playlist.dart';
 import 'package:open_tv/error.dart';
 import 'package:open_tv/favorite_lists_dialog.dart';
 import 'package:open_tv/models/media_type.dart';
@@ -22,6 +23,8 @@ class ChannelTile extends StatefulWidget {
   final VoidCallback? onFocusNavbar;
   final VoidCallback onSelect;
   final VoidCallback? onFavoriteChanged;
+  // Builds the list the player can switch channels in (livestreams only).
+  final ChannelPlaylist? Function()? playlist;
   final bool autofocus;
   const ChannelTile({
     super.key,
@@ -31,6 +34,7 @@ class ChannelTile extends StatefulWidget {
     required this.onSelect,
     this.onFocusNavbar,
     this.onFavoriteChanged,
+    this.playlist,
     this.autofocus = false,
   });
 
@@ -269,7 +273,11 @@ class _ChannelTileState extends State<ChannelTile> {
         context,
         MaterialPageRoute(
           builder: (_) => Platform.isAndroid
-              ? ExoPlayerScreen(channel: widget.channel, settings: settings)
+              ? ExoPlayerScreen(
+                  channel: widget.channel,
+                  settings: settings,
+                  playlist: widget.playlist?.call(),
+                )
               : Player(channel: widget.channel, settings: settings),
         ),
       );

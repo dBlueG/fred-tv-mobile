@@ -29,6 +29,12 @@ impl From<crate::types::Settings> for crate::generated_proto::Settings {
             show_livestreams: settings.show_livestreams,
             show_series: settings.show_series,
             show_movies: settings.show_movies,
+            volume_brightness_gestures: settings.volume_brightness_gestures,
+            swipe_to_change_channel: settings.swipe_to_change_channel,
+            double_tap_seek: settings.double_tap_seek,
+            seek_seconds: settings.seek_seconds,
+            picture_in_picture: settings.picture_in_picture,
+            keep_audio_after_pip: settings.keep_audio_after_pip,
         }
     }
 }
@@ -44,6 +50,12 @@ impl From<crate::generated_proto::Settings> for crate::types::Settings {
             show_livestreams: settings.show_livestreams,
             show_movies: settings.show_movies,
             show_series: settings.show_series,
+            volume_brightness_gestures: settings.volume_brightness_gestures,
+            swipe_to_change_channel: settings.swipe_to_change_channel,
+            double_tap_seek: settings.double_tap_seek,
+            seek_seconds: settings.seek_seconds,
+            picture_in_picture: settings.picture_in_picture,
+            keep_audio_after_pip: settings.keep_audio_after_pip,
         }
     }
 }

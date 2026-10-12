@@ -12,6 +12,12 @@ pub const FORCE_TV_MODE: &str = "forceTvMode";
 pub const SHOW_LIVESTREAMS: &str = "showLivestreams";
 pub const SHOW_MOVIES: &str = "showMovies";
 pub const SHOW_SERIES: &str = "showSeries";
+pub const VOLUME_BRIGHTNESS_GESTURES: &str = "volumeBrightnessGestures";
+pub const SWIPE_TO_CHANGE_CHANNEL: &str = "swipeToChangeChannel";
+pub const DOUBLE_TAP_SEEK: &str = "doubleTapSeek";
+pub const SEEK_SECONDS: &str = "seekSeconds";
+pub const PICTURE_IN_PICTURE: &str = "pictureInPicture";
+pub const KEEP_AUDIO_AFTER_PIP: &str = "keepAudioAfterPip";
 
 pub fn get_settings() -> Result<Settings> {
     let map = sql::get_settings()?;
@@ -24,6 +30,16 @@ pub fn get_settings() -> Result<Settings> {
         show_livestreams: map.get(SHOW_LIVESTREAMS).and_then(|s| s.parse().ok()),
         show_movies: map.get(SHOW_MOVIES).and_then(|s| s.parse().ok()),
         show_series: map.get(SHOW_SERIES).and_then(|s| s.parse().ok()),
+        volume_brightness_gestures: map
+            .get(VOLUME_BRIGHTNESS_GESTURES)
+            .and_then(|s| s.parse().ok()),
+        swipe_to_change_channel: map
+            .get(SWIPE_TO_CHANGE_CHANNEL)
+            .and_then(|s| s.parse().ok()),
+        double_tap_seek: map.get(DOUBLE_TAP_SEEK).and_then(|s| s.parse().ok()),
+        seek_seconds: map.get(SEEK_SECONDS).and_then(|s| s.parse().ok()),
+        picture_in_picture: map.get(PICTURE_IN_PICTURE).and_then(|s| s.parse().ok()),
+        keep_audio_after_pip: map.get(KEEP_AUDIO_AFTER_PIP).and_then(|s| s.parse().ok()),
     };
     Ok(settings)
 }
@@ -64,6 +80,18 @@ pub fn update_settings(settings: Settings) -> Result<()> {
     if let Some(show_series) = settings.show_series {
         map.insert(SHOW_SERIES.to_string(), Some(show_series.to_string()));
     }
+    insert_opt(&mut map, VOLUME_BRIGHTNESS_GESTURES, settings.volume_brightness_gestures);
+    insert_opt(&mut map, SWIPE_TO_CHANGE_CHANNEL, settings.swipe_to_change_channel);
+    insert_opt(&mut map, DOUBLE_TAP_SEEK, settings.double_tap_seek);
+    insert_opt(&mut map, SEEK_SECONDS, settings.seek_seconds);
+    insert_opt(&mut map, PICTURE_IN_PICTURE, settings.picture_in_picture);
+    insert_opt(&mut map, KEEP_AUDIO_AFTER_PIP, settings.keep_audio_after_pip);
     sql::update_settings(map)?;
     Ok(())
+}
+
+fn insert_opt<T: ToString>(map: &mut HashMap<String, Option<String>>, key: &str, value: Option<T>) {
+    if let Some(value) = value {
+        map.insert(key.to_string(), Some(value.to_string()));
+    }
 }

@@ -79,6 +79,18 @@ pub struct Settings {
     pub show_movies: ::core::option::Option<bool>,
     #[prost(bool, optional, tag = "8")]
     pub show_series: ::core::option::Option<bool>,
+    #[prost(bool, optional, tag = "9")]
+    pub volume_brightness_gestures: ::core::option::Option<bool>,
+    #[prost(bool, optional, tag = "10")]
+    pub swipe_to_change_channel: ::core::option::Option<bool>,
+    #[prost(bool, optional, tag = "11")]
+    pub double_tap_seek: ::core::option::Option<bool>,
+    #[prost(uint32, optional, tag = "12")]
+    pub seek_seconds: ::core::option::Option<u32>,
+    #[prost(bool, optional, tag = "13")]
+    pub picture_in_picture: ::core::option::Option<bool>,
+    #[prost(bool, optional, tag = "14")]
+    pub keep_audio_after_pip: ::core::option::Option<bool>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct Filters {

@@ -339,6 +339,60 @@ const Settings$json = {
       '10': 'showSeries',
       '17': true
     },
+    {
+      '1': 'volume_brightness_gestures',
+      '3': 9,
+      '4': 1,
+      '5': 8,
+      '9': 8,
+      '10': 'volumeBrightnessGestures',
+      '17': true
+    },
+    {
+      '1': 'swipe_to_change_channel',
+      '3': 10,
+      '4': 1,
+      '5': 8,
+      '9': 9,
+      '10': 'swipeToChangeChannel',
+      '17': true
+    },
+    {
+      '1': 'double_tap_seek',
+      '3': 11,
+      '4': 1,
+      '5': 8,
+      '9': 10,
+      '10': 'doubleTapSeek',
+      '17': true
+    },
+    {
+      '1': 'seek_seconds',
+      '3': 12,
+      '4': 1,
+      '5': 13,
+      '9': 11,
+      '10': 'seekSeconds',
+      '17': true
+    },
+    {
+      '1': 'picture_in_picture',
+      '3': 13,
+      '4': 1,
+      '5': 8,
+      '9': 12,
+      '10': 'pictureInPicture',
+      '17': true
+    },
+    {
+      '1': 'keep_audio_after_pip',
+      '3': 14,
+      '4': 1,
+      '5': 8,
+      '9': 13,
+      '10': 'keepAudioAfterPip',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_use_stream_caching'},
@@ -349,6 +403,12 @@ const Settings$json = {
     {'1': '_show_livestreams'},
     {'1': '_show_movies'},
     {'1': '_show_series'},
+    {'1': '_volume_brightness_gestures'},
+    {'1': '_swipe_to_change_channel'},
+    {'1': '_double_tap_seek'},
+    {'1': '_seek_seconds'},
+    {'1': '_picture_in_picture'},
+    {'1': '_keep_audio_after_pip'},
   ],
 };
 
@@ -360,10 +420,18 @@ final $typed_data.Uint8List settingsDescriptor = $convert.base64Decode(
     'ABKA1IA1ILZGVmYXVsdFNvcnSIAQESJwoNZm9yY2VfdHZfbW9kZRgFIAEoCEgEUgtmb3JjZVR2'
     'TW9kZYgBARIuChBzaG93X2xpdmVzdHJlYW1zGAYgASgISAVSD3Nob3dMaXZlc3RyZWFtc4gBAR'
     'IkCgtzaG93X21vdmllcxgHIAEoCEgGUgpzaG93TW92aWVziAEBEiQKC3Nob3dfc2VyaWVzGAgg'
-    'ASgISAdSCnNob3dTZXJpZXOIAQFCFQoTX3VzZV9zdHJlYW1fY2FjaGluZ0IPCg1fZGVmYXVsdF'
-    '92aWV3QhMKEV9yZWZyZXNoX29uX3N0YXJ0Qg8KDV9kZWZhdWx0X3NvcnRCEAoOX2ZvcmNlX3R2'
-    'X21vZGVCEwoRX3Nob3dfbGl2ZXN0cmVhbXNCDgoMX3Nob3dfbW92aWVzQg4KDF9zaG93X3Nlcm'
-    'llcw==');
+    'ASgISAdSCnNob3dTZXJpZXOIAQESQQoadm9sdW1lX2JyaWdodG5lc3NfZ2VzdHVyZXMYCSABKA'
+    'hICFIYdm9sdW1lQnJpZ2h0bmVzc0dlc3R1cmVziAEBEjoKF3N3aXBlX3RvX2NoYW5nZV9jaGFu'
+    'bmVsGAogASgISAlSFHN3aXBlVG9DaGFuZ2VDaGFubmVsiAEBEisKD2RvdWJsZV90YXBfc2Vlax'
+    'gLIAEoCEgKUg1kb3VibGVUYXBTZWVriAEBEiYKDHNlZWtfc2Vjb25kcxgMIAEoDUgLUgtzZWVr'
+    'U2Vjb25kc4gBARIxChJwaWN0dXJlX2luX3BpY3R1cmUYDSABKAhIDFIQcGljdHVyZUluUGljdH'
+    'VyZYgBARI0ChRrZWVwX2F1ZGlvX2FmdGVyX3BpcBgOIAEoCEgNUhFrZWVwQXVkaW9BZnRlclBp'
+    'cIgBAUIVChNfdXNlX3N0cmVhbV9jYWNoaW5nQg8KDV9kZWZhdWx0X3ZpZXdCEwoRX3JlZnJlc2'
+    'hfb25fc3RhcnRCDwoNX2RlZmF1bHRfc29ydEIQCg5fZm9yY2VfdHZfbW9kZUITChFfc2hvd19s'
+    'aXZlc3RyZWFtc0IOCgxfc2hvd19tb3ZpZXNCDgoMX3Nob3dfc2VyaWVzQh0KG192b2x1bWVfYn'
+    'JpZ2h0bmVzc19nZXN0dXJlc0IaChhfc3dpcGVfdG9fY2hhbmdlX2NoYW5uZWxCEgoQX2RvdWJs'
+    'ZV90YXBfc2Vla0IPCg1fc2Vla19zZWNvbmRzQhUKE19waWN0dXJlX2luX3BpY3R1cmVCFwoVX2'
+    'tlZXBfYXVkaW9fYWZ0ZXJfcGlw');
 
 @$core.Deprecated('Use filtersDescriptor instead')
 const Filters$json = {

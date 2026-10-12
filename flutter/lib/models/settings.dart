@@ -11,6 +11,13 @@ class Settings {
   bool showMovies;
   bool showSeries;
   bool forceTVMode;
+  // Player (Android)
+  bool volumeBrightnessGestures;
+  bool swipeToChangeChannel;
+  bool doubleTapSeek;
+  int seekSeconds;
+  bool pictureInPicture;
+  bool keepAudioAfterPip;
   Settings({
     this.defaultView = ViewType.all,
     this.defaultSort = SortType.provider,
@@ -20,7 +27,15 @@ class Settings {
     this.showMovies = true,
     this.showSeries = true,
     this.forceTVMode = false,
+    this.volumeBrightnessGestures = true,
+    this.swipeToChangeChannel = true,
+    this.doubleTapSeek = true,
+    this.seekSeconds = 10,
+    this.pictureInPicture = true,
+    this.keepAudioAfterPip = false,
   });
+
+  static const seekSecondsOptions = [10, 15, 30];
 
   List<MediaType> getMediaTypes() {
     return [

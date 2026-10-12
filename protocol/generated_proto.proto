@@ -45,6 +45,12 @@ message Settings {
   optional bool show_livestreams = 6;
   optional bool show_movies = 7;
   optional bool show_series = 8;
+  optional bool volume_brightness_gestures = 9;
+  optional bool swipe_to_change_channel = 10;
+  optional bool double_tap_seek = 11;
+  optional uint32 seek_seconds = 12;
+  optional bool picture_in_picture = 13;
+  optional bool keep_audio_after_pip = 14;
 }
 
 enum MediaType {

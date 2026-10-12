@@ -28,4 +28,18 @@ class Filters {
     this.useKeywords = false,
     this.sort,
   });
+
+  Filters copy() => Filters(
+    query: query,
+    sourceIds: sourceIds != null ? List.of(sourceIds!) : null,
+    mediaTypes: mediaTypes != null ? List.of(mediaTypes!) : null,
+    viewType: viewType,
+    page: page,
+    seriesId: seriesId,
+    seasonId: seasonId,
+    groupId: groupId,
+    favoriteListId: favoriteListId,
+    useKeywords: useKeywords,
+    sort: sort,
+  );
 }

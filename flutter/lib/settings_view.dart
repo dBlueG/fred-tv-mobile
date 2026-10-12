@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
 import 'package:open_tv/extensions/int_extensions.dart';
 import 'package:open_tv/native_bridge.dart';
@@ -142,6 +144,113 @@ class _SettingsState extends State<SettingsView> {
         );
       },
     );
+  }
+
+  Future<void> _showSeekSecondsDialog(BuildContext context) async {
+    showDialog(
+      barrierDismissible: true,
+      context: context,
+      builder: (BuildContext context) {
+        return SelectDialog(
+          title: "Seek amount",
+          data: Settings.seekSecondsOptions
+              .map((x) => IdData(id: x, data: "$x seconds"))
+              .toList(),
+          action: (seconds) {
+            setState(() {
+              settings.seekSeconds = seconds;
+              updateSettings();
+            });
+            Navigator.of(context).pop();
+          },
+          previouslySelectedId: settings.seekSeconds,
+        );
+      },
+    );
+  }
+
+  Widget _switchTile({
+    required String title,
+    String? subtitle,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+    bool enabled = true,
+  }) {
+    return ListTile(
+      title: Text(title),
+      subtitle: subtitle != null ? Text(subtitle) : null,
+      enabled: enabled,
+      trailing: Switch(
+        value: value,
+        onChanged: enabled
+            ? (bool value) {
+                setState(() => onChanged(value));
+                updateSettings();
+              }
+            : null,
+      ),
+    );
+  }
+
+  Widget _sectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 10, top: 10, bottom: 10),
+      child: Text(
+        title,
+        style: const TextStyle(fontSize: 30, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+
+  // Settings for the native Android player.
+  List<Widget> _playerSettings() {
+    if (!Platform.isAndroid) return [];
+    final touch = !widget.tvMode;
+    return [
+      const Divider(),
+      _sectionTitle("Player"),
+      if (touch)
+        _switchTile(
+          title: "Volume and brightness gestures",
+          subtitle: "Drag up or down on the right or left side",
+          value: settings.volumeBrightnessGestures,
+          onChanged: (v) => settings.volumeBrightnessGestures = v,
+        ),
+      if (touch)
+        _switchTile(
+          title: "Swipe to change channel",
+          subtitle: "Swipe left or right on a livestream",
+          value: settings.swipeToChangeChannel,
+          onChanged: (v) => settings.swipeToChangeChannel = v,
+        ),
+      if (touch)
+        _switchTile(
+          title: "Double-tap to seek",
+          subtitle: "Double-tap the left or right side of a movie or episode",
+          value: settings.doubleTapSeek,
+          onChanged: (v) => settings.doubleTapSeek = v,
+        ),
+      ListTile(
+        title: const Text("Seek amount"),
+        subtitle: Text("${settings.seekSeconds} seconds"),
+        onTap: () => _showSeekSecondsDialog(context),
+      ),
+      if (touch)
+        _switchTile(
+          title: "Picture-in-picture",
+          subtitle: "Keep watching in a small window when leaving the app",
+          value: settings.pictureInPicture,
+          onChanged: (v) => settings.pictureInPicture = v,
+        ),
+      if (touch)
+        _switchTile(
+          title: "Keep playing after closing picture-in-picture",
+          subtitle: "Audio continues with controls in the notification",
+          value: settings.keepAudioAfterPip,
+          enabled: settings.pictureInPicture,
+          onChanged: (v) => settings.keepAudioAfterPip = v,
+        ),
+    ];
   }
 
   Future<void> toggleSource(Source source) async {
@@ -454,6 +563,7 @@ class _SettingsState extends State<SettingsView> {
                               ],
                             ),
                           ),
+                        ..._playerSettings(),
                         const Divider(),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,

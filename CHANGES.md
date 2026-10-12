@@ -14,6 +14,7 @@ project (`Fredolx/fred-tv-mobile`).
 | 7 | [Multiple favorite lists](#7-multiple-favorite-lists) | 2026-10-09 | Rust core, Flutter UI |
 | 8 | [Building the Rust core on Windows](#8-building-the-rust-core-on-windows) | 2026-10-09 | Build setup |
 | 9 | [Faster Xtream refresh](#9-faster-xtream-refresh) | 2026-10-09 | Rust core |
+| 10 | [Player settings, channel switching, double-tap seek, sleep timer](#10-player-settings-channel-switching-double-tap-seek-sleep-timer) | 2026-10-12 | Android player, settings |
 
 Changes 1–4 and 6 only affect the Android app. iOS, macOS, Windows and Linux
 use `media_kit` for playback, so their players are unchanged. Change 7 is in the
@@ -585,3 +586,109 @@ are large JSON documents, so compressed responses are much smaller.
   `get_xtream_http_data` requests. Before, each request built its own client,
   so none of them could share connections.
 - `get_episodes` and `get_status` use `build_client` as well.
+
+---
+
+## 10. Player settings, channel switching, double-tap seek, sleep timer
+
+**Date:** 2026-10-12
+**Branch:** `player-and-home-features`
+**Status:** Smoke-tested on the Android emulator (Pixel 9a image) against a mock
+Xtream server; not yet tested on the vivo.
+
+### Behavior
+
+**New "Player" section in Settings** (Android only). Touch-only options are hidden
+in TV mode.
+
+| Setting | Default | Effect |
+|---|---|---|
+| Volume and brightness gestures | On | The drags from change 6 |
+| Swipe to change channel | On | Horizontal swipe on a livestream |
+| Double-tap to seek | On | Movies and episodes |
+| Seek amount | 10 s | 10, 15 or 30 s; used by double-tap, the ⏪/⏩ buttons and D-pad seeking |
+| Picture-in-picture | On | Off: Home leaves the player normally. Never used on Android TV |
+| Keep playing after closing picture-in-picture | Off | Off: closing the PiP window pauses playback |
+
+**Changing channel in the player (livestreams).**
+- Swipe left for the next channel and right for the previous one. The channel
+  name shows at the top for 2 s.
+- Remote: Channel up/down (and Page up/down) always switch. D-pad up/down switch
+  while the controls are hidden; while they're shown, they move between buttons.
+  Up/Channel up = previous in the list, Down/Channel down = next.
+- The list is the one the channel was opened from (All, a category, Favorites or a
+  favorite list, History, search results), in the same order. Only livestreams
+  are visited. More pages load as needed, and it wraps around once the whole list
+  is loaded. Each channel switched to is added to History.
+
+**Double-tap to seek (movies and episodes).** Double-tap the left or right 40% of
+the screen to go back or forward. Further taps keep seeking, and a "+20 s"-style
+indicator shows the total. The middle of the screen, the top bar and the bottom
+controls area are left alone.
+
+**Sleep timer.** New timer button in the player's bottom bar: Off, 15, 30, 45, 60,
+90 or 120 minutes. The icon turns amber while a timer is set, and the dialog shows
+the minutes left. When it fires, playback pauses and the screen is allowed to turn
+off.
+
+**Live play/pause.** Live streams now show the play button while paused (from the
+notification, the sleep timer, or closing PiP). Resuming a live stream jumps to the
+live edge. The button stays hidden while playing, as before.
+
+**PiP follow-ups (from change 2).** Closing the PiP window pauses playback unless
+"Keep playing…" is on. If a livestream was paused this way, it resumes when the app
+is opened again, since it has no play button while playing. PiP is never entered on
+Android TV (`FEATURE_LEANBACK`).
+
+### File changes
+
+**Settings plumbing:** six new optional fields in `Settings`
+(`protocol/generated_proto.proto`, fields 9–14), regenerated
+`src/generated_proto.rs` and `flutter/lib/generated/generated_proto.pb*.dart`,
+`src/types.rs`, `src/lib.rs` (conversions), `src/settings.rs` (keys and an
+`insert_opt` helper), `flutter/lib/models/settings.dart`,
+`flutter/lib/extensions/proto_extensions.dart`. Android `.so` libraries rebuilt.
+
+**`flutter/lib/settings_view.dart`**: "Player" section, seek amount dialog.
+
+**`flutter/lib/models/channel_playlist.dart`** (new): the list the player can
+switch in; `Filters.copy()` in `models/filters.dart`.
+
+**`flutter/lib/home.dart`, `channel_tile.dart`**: build a `ChannelPlaylist` for the
+tapped livestream and pass it to the player.
+
+**`flutter/lib/exo_player.dart`**: passes the player settings and
+`canSwitchChannel` in the creation params, and answers `switchChannel(delta)` from
+native code with the next channel's URL, title, logo and HTTP headers.
+
+**`PlayerGestureLayout.kt`**: also detects horizontal swipes (at least 15% of
+the width) and double taps, each with its own enable flag. Fix: an intercepted
+event is also delivered to `onTouchEvent`, so events are now de-duplicated (a
+double tap was counted twice).
+
+**`ExoPlayerView.kt`**:
+- Reads the settings; seek increment from "Seek amount".
+- `requestChannelSwitch` / `loadChannel`: asks Flutter for the next channel and
+  swaps the media item. The HTTP headers are re-applied to the existing data
+  source factory, and a pending reconnect is cancelled.
+- `onDoubleTap`, the seek indicators, the sleep timer dialog and timer.
+- `blockedCommands`: live streams no longer block play/pause; `updateLiveControls`
+  shows the button only while paused; resuming live seeks to the default position.
+- `keepScreenOn` follows `playWhenReady`.
+- `pipAllowed`, `canEnterPip`, `onPipClosed`, `onHostResumed`.
+- D-pad and channel keys switch channels (`channelKeyDelta`).
+
+**`MainActivity.kt`**: uses `canEnterPip`. Detects a closed PiP window (PiP ends
+while the activity is stopped, i.e. lifecycle state `CREATED`), and forwards
+`onResume`.
+
+**Layouts and resources:** `sleep_button` in `custom_player_control_view.xml`;
+`channel_indicator` and the two seek indicators in `exo_player_container.xml`;
+`ic_player_timer.xml`; `sleep_timer` string.
+
+### Not covered
+
+- The `media_kit` player (iOS, desktop) is unchanged. It has its own double-tap
+  seek, but no channel switching or sleep timer.
+- Sleep timer firing after 15 minutes was not waited out on the emulator; the
+  dialog, countdown and pause path were checked.

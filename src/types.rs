@@ -67,6 +67,12 @@ pub struct Settings {
     pub show_livestreams: Option<bool>,
     pub show_movies: Option<bool>,
     pub show_series: Option<bool>,
+    pub volume_brightness_gestures: Option<bool>,
+    pub swipe_to_change_channel: Option<bool>,
+    pub double_tap_seek: Option<bool>,
+    pub seek_seconds: Option<u32>,
+    pub picture_in_picture: Option<bool>,
+    pub keep_audio_after_pip: Option<bool>,
 }
 
 #[derive(Clone, PartialEq, Debug, Deserialize, Serialize)]

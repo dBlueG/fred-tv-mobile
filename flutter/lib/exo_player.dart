@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:open_tv/error.dart';
 import 'package:open_tv/models/channel.dart';
 import 'package:open_tv/models/channel_http_headers.dart';
+import 'package:open_tv/models/channel_playlist.dart';
 import 'package:open_tv/models/media_type.dart';
 import 'package:open_tv/models/settings.dart';
 import 'package:open_tv/native_bridge.dart';
@@ -16,10 +17,12 @@ import 'package:open_tv/task_service.dart';
 class ExoPlayerScreen extends StatefulWidget {
   final Channel channel;
   final Settings settings;
+  final ChannelPlaylist? playlist;
   const ExoPlayerScreen({
     super.key,
     required this.channel,
     required this.settings,
+    this.playlist,
   });
 
   @override
@@ -47,14 +50,14 @@ class _ExoPlayerScreenState extends State<ExoPlayerScreen> {
     _init();
   }
 
+  Future<ChannelHttpHeaders?> _getHeaders(Channel channel) async =>
+      (await Error.tryAsyncNoLoading(() async {
+        return await NativeBridge.instance.getChannelHeaders(channel.id!);
+      })).data;
+
   Future<void> _init() async {
-    final ChannelHttpHeaders? headers = (await Error.tryAsyncNoLoading(
-      () async {
-        return await NativeBridge.instance.getChannelHeaders(
-          widget.channel.id!,
-        );
-      },
-    )).data;
+    final headers = await _getHeaders(widget.channel);
+    final settings = widget.settings;
     final seconds = widget.channel.mediaType == MediaType.movie
         ? (await Error.tryAsyncNoLoading(() async {
             return await NativeBridge.instance.getMoviePosition(
@@ -73,6 +76,13 @@ class _ExoPlayerScreenState extends State<ExoPlayerScreen> {
         "referer": headers?.referrer,
         "origin": headers?.httpOrigin,
         "userAgent": headers?.userAgent,
+        "volumeBrightnessGestures": settings.volumeBrightnessGestures,
+        "swipeToChangeChannel": settings.swipeToChangeChannel,
+        "canSwitchChannel": widget.playlist != null,
+        "doubleTapSeek": settings.doubleTapSeek,
+        "seekSeconds": settings.seekSeconds,
+        "pictureInPicture": settings.pictureInPicture,
+        "keepAudioAfterPip": settings.keepAudioAfterPip,
       };
       _ready = true;
     });
@@ -81,11 +91,32 @@ class _ExoPlayerScreenState extends State<ExoPlayerScreen> {
   void _onPlatformViewCreated(int id) {
     _channel = MethodChannel("dev.fredol.open_tv/exoplayer_$id");
     _channel!.setMethodCallHandler((call) async {
-      if (call.method == "onBack") {
-        _onExit();
+      switch (call.method) {
+        case "onBack":
+          _onExit();
+        case "switchChannel":
+          return _switchChannel(call.arguments as int);
       }
       return null;
     });
+  }
+
+  // Returns the parameters of the channel to play next, or null to stay.
+  Future<Map<String, dynamic>?> _switchChannel(int delta) async {
+    final playlist = widget.playlist;
+    if (playlist == null || _exiting) return null;
+    final channel = await playlist.step(delta);
+    if (channel == null || !mounted) return null;
+    final headers = await _getHeaders(channel);
+    TaskService.instance.addLastWatched(channel.id!);
+    return {
+      "url": channel.url,
+      "title": channel.name,
+      "image": channel.image,
+      "referer": headers?.referrer,
+      "origin": headers?.httpOrigin,
+      "userAgent": headers?.userAgent,
+    };
   }
 
   Future<void> _onExit() async {

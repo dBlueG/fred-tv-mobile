@@ -6,6 +6,7 @@ import android.content.res.Configuration
 import android.os.Build
 import android.view.KeyEvent
 import androidx.annotation.RequiresApi
+import androidx.lifecycle.Lifecycle
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 
@@ -29,7 +30,7 @@ class MainActivity : FlutterActivity() {
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
         if (Build.VERSION.SDK_INT in Build.VERSION_CODES.O until Build.VERSION_CODES.S &&
-            supportsPip() && ExoPlayerView.active?.wantsPlayback == true
+            supportsPip() && ExoPlayerView.active?.canEnterPip == true
         ) {
             enterPictureInPictureMode(pipParams())
         }
@@ -38,6 +39,15 @@ class MainActivity : FlutterActivity() {
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
         ExoPlayerView.active?.onPipModeChanged(isInPictureInPictureMode)
+        // Leaving PiP while stopped means the window was closed rather than expanded.
+        if (!isInPictureInPictureMode && lifecycle.currentState == Lifecycle.State.CREATED) {
+            ExoPlayerView.active?.onPipClosed()
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        ExoPlayerView.active?.onHostResumed()
     }
 
     private fun updatePipParams() {
@@ -51,7 +61,7 @@ class MainActivity : FlutterActivity() {
         val builder = PictureInPictureParams.Builder()
         view?.pipAspectRatio()?.let { builder.setAspectRatio(it) }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            builder.setAutoEnterEnabled(view?.wantsPlayback == true)
+            builder.setAutoEnterEnabled(view?.canEnterPip == true)
         }
         return builder.build()
     }
