@@ -143,17 +143,35 @@ class TaskService {
     }
   }
 
-  Future<void> refreshAll() => _run(
-    _refreshLabel,
-    () => NativeBridge.instance.refreshAll(),
-    "Successfully refreshed all sources",
-  );
+  Future<void> refreshAll() async {
+    await _run(
+      _refreshLabel,
+      () => NativeBridge.instance.refreshAll(),
+      "Successfully refreshed all sources",
+    );
+    updateGuides();
+  }
 
-  Future<void> refreshSource(Source source) => _run(
-    _refreshLabel,
-    () => NativeBridge.instance.refreshSource(source),
-    "Source has been refreshed successfully",
-  );
+  Future<void> refreshSource(Source source) async {
+    await _run(
+      _refreshLabel,
+      () => NativeBridge.instance.refreshSource(source),
+      "Source has been refreshed successfully",
+    );
+    updateGuides();
+  }
+
+  // Downloads programme guides in the background when programme search is on
+  // and a guide is due (about twice a day, or never downloaded). Failures are
+  // only logged: the next start tries again.
+  Future<void> updateGuides({bool force = false}) async {
+    try {
+      if (!(await NativeBridge.instance.getSettings()).searchProgrammes) return;
+      await NativeBridge.instance.updateGuides(force: force);
+    } catch (e) {
+      debugPrint("Programme guide update failed: $e");
+    }
+  }
 
   Future<void> deleteSource(int id) => _run(
     _deleteSourceLabel,

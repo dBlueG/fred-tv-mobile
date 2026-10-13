@@ -386,6 +386,25 @@ class NativeBridge {
     return result.epgPrograms.programs.map((p) => p.toDomain()).toList();
   }
 
+  // Downloads the programme guides that are due, or all of them with `force`.
+  Future<void> updateGuides({bool force = false}) async {
+    await _executeWithMsg(pb.BoolMessage(value: force), (id, ptr, len, cb) {
+      _bindings.update_guides(id, cb, ptr, len);
+    });
+  }
+
+  Future<void> clearGuides() async {
+    await _executeAsync((id, cb) => _bindings.clear_guides(id, cb));
+  }
+
+  // Guide programmes whose title matches the filters' query.
+  Future<List<ProgramMatch>> searchPrograms(Filters filters) async {
+    final result = await _executeWithMsg(filters.toProto(), (id, ptr, len, cb) {
+      _bindings.search_programs(id, cb, ptr, len);
+    });
+    return result.programMatches.items.map((m) => m.toDomain()).toList();
+  }
+
   Future<String> exportBackup() async {
     final result = await _executeAsync((id, cb) {
       _bindings.export_backup(id, cb);

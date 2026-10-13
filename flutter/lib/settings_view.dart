@@ -744,6 +744,23 @@ class _SettingsState extends State<SettingsView> {
                           onChanged: (v) => settings.showEpg = v,
                         ),
                         _switchTile(
+                          title: "Search programmes",
+                          subtitle:
+                              "Downloads the full programme guide (Xtream, or M3U "
+                              "with a guide link) about twice a day",
+                          value: settings.searchProgrammes,
+                          onChanged: (v) {
+                            settings.searchProgrammes = v;
+                            if (v) {
+                              NativeBridge.instance.updateGuides().catchError(
+                                (e) => debugPrint("Guide update failed: $e"),
+                              );
+                            } else {
+                              NativeBridge.instance.clearGuides();
+                            }
+                          },
+                        ),
+                        _switchTile(
                           title: "Show Continue Watching",
                           subtitle: "Unfinished movies and episodes on the home screen",
                           value: settings.showContinueWatching,

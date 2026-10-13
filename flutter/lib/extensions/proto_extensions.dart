@@ -33,6 +33,11 @@ extension ChannelProtoExtension on pb.Channel {
   );
 }
 
+extension ProgramMatchProtoExtension on pb.ProgramMatch {
+  ProgramMatch toDomain() =>
+      ProgramMatch(channel: channel.toDomain(), program: program.toDomain());
+}
+
 extension EpgProgramProtoExtension on pb.EpgProgram {
   EpgProgram toDomain() => EpgProgram(
     title: title,
@@ -140,6 +145,7 @@ extension SettingsProtoExtension on pb.Settings {
     parentalPin: hasParentalPin() && parentalPin.isNotEmpty
         ? parentalPin
         : null,
+    searchProgrammes: hasSearchProgrammes() ? searchProgrammes : true,
   );
 }
 
@@ -165,6 +171,7 @@ extension SettingsDomainExtension on Settings {
     showEpg: showEpg,
     // An empty PIN removes it.
     parentalPin: parentalPin ?? "",
+    searchProgrammes: searchProgrammes,
   );
 }
 

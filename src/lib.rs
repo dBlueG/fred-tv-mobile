@@ -8,6 +8,7 @@ mod backup;
 mod c;
 mod epg;
 mod generated_proto;
+mod guide;
 mod log;
 mod m3u;
 mod media_type;
@@ -42,6 +43,7 @@ impl From<crate::types::Settings> for crate::generated_proto::Settings {
             autoplay_countdown_seconds: settings.autoplay_countdown_seconds,
             show_epg: settings.show_epg,
             parental_pin: settings.parental_pin,
+            search_programmes: settings.search_programmes,
         }
     }
 }
@@ -68,6 +70,7 @@ impl From<crate::generated_proto::Settings> for crate::types::Settings {
             autoplay_countdown_seconds: settings.autoplay_countdown_seconds,
             show_epg: settings.show_epg,
             parental_pin: settings.parental_pin,
+            search_programmes: settings.search_programmes,
         }
     }
 }
@@ -196,6 +199,15 @@ impl From<crate::types::EpgProgram> for crate::generated_proto::EpgProgram {
             stop: p.stop,
             has_archive: p.has_archive,
             catchup_url: p.catchup_url,
+        }
+    }
+}
+
+impl From<crate::types::ProgramMatch> for crate::generated_proto::ProgramMatch {
+    fn from(m: crate::types::ProgramMatch) -> Self {
+        crate::generated_proto::ProgramMatch {
+            channel: Some(m.channel.into()),
+            program: Some(m.program.into()),
         }
     }
 }
@@ -597,6 +609,44 @@ pub extern "C" fn get_epg_programs(task_id: u64, callback: FfiCallback, ptr: *co
                 generated_proto::EpgProgramList {
                     programs: epg::get_programs(id.value)
                         .await?
+                        .into_iter()
+                        .map(Into::into)
+                        .collect(),
+                },
+            ))
+        },
+    )
+}
+
+// Downloads programme guides that are due (all of them with `force`).
+#[unsafe(no_mangle)]
+pub extern "C" fn update_guides(task_id: u64, callback: FfiCallback, ptr: *const u8, len: usize) {
+    c::queue_async_with_message(
+        task_id,
+        callback,
+        ptr,
+        len,
+        |force: generated_proto::BoolMessage| async move { guide::update_guides(force.value).await },
+    );
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn clear_guides(task_id: u64, callback: FfiCallback) {
+    c::queue_blocking(task_id, callback, || sql::clear_guides())
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn search_programs(task_id: u64, callback: FfiCallback, ptr: *const u8, len: usize) {
+    c::queue_blocking_with_message(
+        task_id,
+        callback,
+        ptr,
+        len,
+        |filters: crate::generated_proto::Filters| {
+            let now = chrono::Utc::now().timestamp();
+            Ok(generated_proto::ffi_result::Data::ProgramMatches(
+                generated_proto::ProgramMatchList {
+                    items: sql::search_programs(crate::types::Filters::from(filters), now)?
                         .into_iter()
                         .map(Into::into)
                         .collect(),

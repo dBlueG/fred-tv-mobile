@@ -136,6 +136,7 @@ class _SetupState extends State<Setup> {
       false,
       false,
     );
+    if (result.success) TaskService.instance.updateGuides();
     setState(() {
       loading = false;
     });

@@ -26,6 +26,9 @@ pub struct Channel {
     pub episode_num: Option<i64>,
     #[serde(default)]
     pub locked: bool,
+    // The channel's id in the programme guide (Xtream epg_channel_id, M3U tvg-id).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub epg_id: Option<String>,
 }
 
 #[derive(Clone, PartialEq, Debug, Deserialize, Serialize, Default)]
@@ -82,6 +85,7 @@ pub struct Settings {
     pub autoplay_countdown_seconds: Option<u32>,
     pub show_epg: Option<bool>,
     pub parental_pin: Option<String>,
+    pub search_programmes: Option<bool>,
 }
 
 #[derive(Clone, PartialEq, Debug, Deserialize, Serialize)]
@@ -182,6 +186,13 @@ pub struct EpgProgram {
     pub stop: i64,
     pub has_archive: bool,
     pub catchup_url: Option<String>,
+}
+
+// A guide programme found by search, with the channel showing it.
+#[derive(Clone, PartialEq, Debug)]
+pub struct ProgramMatch {
+    pub channel: Channel,
+    pub program: EpgProgram,
 }
 
 #[derive(Clone, PartialEq, Debug)]

@@ -59,6 +59,8 @@ Future<void> main() async {
   if (hasSources) ResumePrompt.init();
   if (hasSources && settings.refreshOnStart) {
     TaskService.instance.refreshAll();
+  } else if (hasSources) {
+    TaskService.instance.updateGuides();
   }
 }
 

@@ -19,6 +19,7 @@ project (`Fredolx/fred-tv-mobile`).
 | 12 | [Programme guide (now/next), catch-up, parental PIN](#12-programme-guide-nownext-catch-up-parental-pin) | 2026-10-12 | Rust core, Flutter UI |
 | 13 | [Fix: list opening in landscape after the player; resume prompt](#13-fix-list-opening-in-landscape-after-the-player-resume-prompt) | 2026-10-13 | Flutter UI, Android player |
 | 14 | [Favorite categories](#14-favorite-categories) | 2026-10-13 | Rust core, Flutter UI |
+| 15 | [Programme search](#15-programme-search) | 2026-10-13 | Rust core, Flutter UI |
 
 Changes 1–4 and 6 only affect the Android app. iOS, macOS, Windows and Linux
 use `media_kit` for playback, so their players are unchanged. Change 7 is in the
@@ -1008,3 +1009,80 @@ phone sideways (or lying down) after leaving the player turned the list.
 - `flutter/lib/channel_tile.dart`: long-press on a category toggles its favorite.
 - `home.dart`: Categories section in Favorites. `native_bridge.dart`,
   `task_service.dart`: `favoriteGroup`, `getFavoriteGroups`.
+
+---
+
+## 15. Programme search
+
+**Date:** 2026-10-13
+**Branch:** `player-and-home-features`
+**Status:** Rust tests added (XMLTV parsing, gzip, search query); tested on the
+Android emulator against the mock Xtream server's gzipped `xmltv.php`
+(download after refresh, results, times with a +0300 guide, catch-up from a
+result, setting off/on). M3U guide links weren't tested against a real playlist.
+
+### Behavior
+
+Searching also finds programmes, not just channel names. A **Programmes** row
+appears above the matching channels: what's on now first, then upcoming, then
+past programmes on channels with an archive (newest first), up to 60. Each card
+shows the title, channel and time ("Now, until 23:00", "Tomorrow 05:00",
+"Yesterday 18:00"; ⟲ for catch-up). Tapping one shows the description with
+**Watch channel**, and **Catch-up** for past programmes kept in the archive
+(opens the channel's catch-up screen).
+
+- Searched from All, Favorites (favorite channels only) and inside a category,
+  when livestreams are shown. Not in History, the category list, or series.
+- At least 2 characters; the keywords toggle works as for channels. Locked
+  categories and sources are left out while locked.
+- Setting: **Search programmes** (on). Turning it off deletes the stored guides;
+  turning it on downloads them.
+
+**The guide.** Downloaded in the background: at start (or after "Refresh sources
+on start"), after a source refresh, after adding a source, and when the setting
+is turned on. A source's guide is downloaded again after 12 hours; otherwise
+these steps do nothing for it. Failures are only logged, and the next start
+tries again.
+- Xtream: `{server}/xmltv.php?username=…&password=…`. M3U: the first URL in the
+  playlist header's `url-tvg` / `x-tvg-url` / `tvg-url`, stored on refresh.
+  Gzipped guides are detected and unpacked.
+- Programmes are matched to channels by guide id: Xtream `epg_channel_id`, M3U
+  `tvg-id`, now stored on channels (`channels.epg_id`). **Existing sources need
+  one refresh** to get the ids; until then their guide isn't downloaded.
+- Only programmes of the source's livestreams are stored, from now to 3 days
+  ahead, plus the last 7 days for channels with an archive. Descriptions are
+  cut to 400 characters. Large providers' guides can still be tens of MB to
+  download and a few hundred thousand rows; they are written in batches of
+  5000 so other writes aren't blocked.
+
+### File changes
+
+- `src/guide.rs` (new): download, streaming XMLTV parser (`quick-xml`; titles,
+  descriptions, entities, CDATA, first title only), gzip (`flate2`), update
+  scheduling. Tests `reads_programmes_of_known_channels_in_window`,
+  `reads_gzipped_guides`.
+- `src/sql.rs`: eighth migration (`channels.epg_id` with an index,
+  `sources.epg_url`, `sources.guide_updated`, `epg_programs`);
+  `insert_channel` stores `epg_id`; `search_programs`, `replace_guide_programs`,
+  `clear_guides`, `get_guide_channels`, `get_guide_updated`,
+  `get/set_source_epg_url`; `delete_source` removes the guide. Test
+  `finds_programmes_by_title`.
+- `src/xtream.rs`: reads `epg_channel_id` for livestreams. `src/m3u.rs`: keeps
+  `tvg-id`; reads the guide URL from the `#EXTM3U` line.
+- `src/types.rs`: `Channel.epg_id`, `ProgramMatch`, setting
+  `search_programmes`. `src/settings.rs`: `searchProgrammes`.
+- `src/lib.rs`: FFI `update_guides`, `clear_guides`, `search_programs`. Proto:
+  `ProgramMatch(List)`, `Settings.search_programmes`, `FFIResult.program_matches`.
+  Bindings added by hand. Android `.so` libraries rebuilt. `Cargo.toml`:
+  `quick-xml` 0.38, `flate2` 1.
+- `flutter/lib/programme_results.dart` (new): the row, cards and details dialog.
+- `home.dart`: searches programmes with the channels. `task_service.dart`:
+  `updateGuides` after refreshes; `main.dart`, `setup.dart`: at start and after
+  adding a source. `settings_view.dart`: the setting. `models/epg.dart`,
+  `models/settings.dart`, `native_bridge.dart`, `extensions/proto_extensions.dart`.
+
+### Not covered
+
+- The guide isn't used for the now/next lines on tiles yet (those still come
+  from Xtream's per-channel EPG), so M3U tiles still show no programme info.
+- No full guide grid.

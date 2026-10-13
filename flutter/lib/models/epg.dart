@@ -1,3 +1,5 @@
+import 'package:open_tv/models/channel.dart';
+
 class EpgProgram {
   final String title;
   final String? description;
@@ -31,6 +33,14 @@ class EpgProgram {
       1.0,
     );
   }
+}
+
+// A programme found by searching the downloaded guide, with its channel.
+class ProgramMatch {
+  final Channel channel;
+  final EpgProgram program;
+
+  ProgramMatch({required this.channel, required this.program});
 }
 
 class EpgNowNext {

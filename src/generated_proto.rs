@@ -106,6 +106,8 @@ pub struct Settings {
     pub show_epg: ::core::option::Option<bool>,
     #[prost(string, optional, tag = "19")]
     pub parental_pin: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(bool, optional, tag = "20")]
+    pub search_programmes: ::core::option::Option<bool>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct Filters {
@@ -233,6 +235,18 @@ pub struct EpgProgramList {
     #[prost(message, repeated, tag = "1")]
     pub programs: ::prost::alloc::vec::Vec<EpgProgram>,
 }
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ProgramMatch {
+    #[prost(message, optional, tag = "1")]
+    pub channel: ::core::option::Option<Channel>,
+    #[prost(message, optional, tag = "2")]
+    pub program: ::core::option::Option<EpgProgram>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ProgramMatchList {
+    #[prost(message, repeated, tag = "1")]
+    pub items: ::prost::alloc::vec::Vec<ProgramMatch>,
+}
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct SetLocked {
     #[prost(int64, tag = "1")]
@@ -331,7 +345,7 @@ pub struct FfiResult {
     pub success: bool,
     #[prost(string, optional, tag = "2")]
     pub error_message: ::core::option::Option<::prost::alloc::string::String>,
-    #[prost(oneof = "ffi_result::Data", tags = "3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20")]
+    #[prost(oneof = "ffi_result::Data", tags = "3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21")]
     pub data: ::core::option::Option<ffi_result::Data>,
 }
 /// Nested message and enum types in `FFIResult`.
@@ -372,6 +386,8 @@ pub mod ffi_result {
         EpgNowNext(super::EpgNowNextList),
         #[prost(message, tag = "20")]
         EpgPrograms(super::EpgProgramList),
+        #[prost(message, tag = "21")]
+        ProgramMatches(super::ProgramMatchList),
     }
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]

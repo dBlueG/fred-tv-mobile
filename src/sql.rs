@@ -253,6 +253,28 @@ CREATE TABLE "favorite_groups" (
   PRIMARY KEY (source_id, name)
 );
 "#,
+    ),
+    // The downloaded programme guide, for programme search. Programmes are
+    // matched to channels by (source_id, epg_id), which a refresh keeps.
+    M::up(
+        r#"
+ALTER TABLE channels ADD COLUMN epg_id varchar(100);
+ALTER TABLE sources ADD COLUMN epg_url varchar(500);
+ALTER TABLE sources ADD COLUMN guide_updated integer;
+
+CREATE TABLE "epg_programs" (
+  "id"          INTEGER PRIMARY KEY,
+  "source_id"   integer NOT NULL,
+  "epg_id"      varchar(100) NOT NULL,
+  "start"       integer NOT NULL,
+  "stop"        integer NOT NULL,
+  "title"       varchar(200) NOT NULL,
+  "description" varchar(500)
+);
+
+CREATE INDEX index_epg_programs_source ON epg_programs(source_id);
+CREATE INDEX index_channels_epg_id ON channels(source_id, epg_id) WHERE epg_id IS NOT NULL;
+"#,
     )]);
     migrations.to_latest(&mut sql)?;
     Ok(())
@@ -330,8 +352,8 @@ pub fn insert_season(tx: &Transaction, season: Season) -> Result<i64> {
 pub fn insert_channel(tx: &Transaction, channel: Channel) -> Result<()> {
     tx.prepare_cached(
         r#"
-INSERT INTO channels (name, group_id, image, url, source_id, media_type, series_id, favorite, stream_id, tv_archive, season_id, episode_num)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO channels (name, group_id, image, url, source_id, media_type, series_id, favorite, stream_id, tv_archive, season_id, episode_num, epg_id)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (name, source_id, url, series_id, season_id)
 DO UPDATE SET
     url = excluded.url,
@@ -340,7 +362,8 @@ DO UPDATE SET
     image = excluded.image,
     series_id = excluded.series_id,
     tv_archive = excluded.tv_archive,
-    season_id = excluded.season_id;
+    season_id = excluded.season_id,
+    epg_id = excluded.epg_id;
 "#,
     )?
     .execute(params![
@@ -355,7 +378,8 @@ DO UPDATE SET
             channel.stream_id,
             channel.tv_archive,
             channel.season_id,
-            channel.episode_num
+            channel.episode_num,
+            channel.epg_id
         ])?;
     Ok(())
 }
@@ -644,6 +668,7 @@ fn season_row_to_channel(row: &Row) -> std::result::Result<Channel, rusqlite::Er
         tv_archive: None,
         url: None,
         episode_num: None,
+        epg_id: None,
         locked: false,
     })
 }
@@ -746,7 +771,7 @@ fn search_groups(filters: Filters, favorites_only: bool) -> Result<Vec<Channel>>
     sql_query += match filters.sort {
         sort_type::PROVIDER => "\nORDER BY favorite DESC, id",
         sort_type::ALPHABETICAL_DESC => "\nORDER BY favorite DESC, name DESC",
-        _ => "\nORDER BY favorite DESC, name ASC",
+        sort_type::ALPHABETICAL_ASC | _ => "\nORDER BY favorite DESC, name ASC",
     };
     sql_query += "\nLIMIT ?, ?";
     params.extend(to_to_sql(&keywords));
@@ -778,6 +803,7 @@ fn row_to_group(row: &Row) -> std::result::Result<Channel, rusqlite::Error> {
         tv_archive: None,
         season_id: None,
         episode_num: None,
+        epg_id: None,
         locked: row.get("locked")?,
     };
     Ok(channel)
@@ -794,6 +820,7 @@ fn row_to_channel(row: &Row) -> std::result::Result<Channel, rusqlite::Error> {
         url: row.get("url")?,
         favorite: row.get("favorite")?,
         episode_num: row.get("episode_num")?,
+        epg_id: None,
         locked: false,
         series_id: None,
         group: None,
@@ -860,6 +887,7 @@ pub fn delete_source(id: i64) -> Result<()> {
     sql.execute("DELETE FROM movie_positions WHERE source_id = ?", params![id])?;
     sql.execute("DELETE FROM locked_groups WHERE source_id = ?", params![id])?;
     sql.execute("DELETE FROM favorite_groups WHERE source_id = ?", params![id])?;
+    sql.execute("DELETE FROM epg_programs WHERE source_id = ?", params![id])?;
     sql.execute(
         r#"
         DELETE FROM channels
@@ -1565,6 +1593,165 @@ pub fn get_epg_targets(channel_ids: &[i64]) -> Result<Vec<EpgTarget>> {
     Ok(targets)
 }
 
+// --- Programme guide (search) ---
+
+pub fn set_source_epg_url(tx: &Transaction, source_id: i64, url: Option<&str>) -> Result<()> {
+    tx.execute(
+        "UPDATE sources SET epg_url = ? WHERE id = ?",
+        params![url, source_id],
+    )?;
+    Ok(())
+}
+
+pub fn get_source_epg_url(source_id: i64) -> Result<Option<String>> {
+    let sql = get_conn()?;
+    Ok(sql.query_row(
+        "SELECT epg_url FROM sources WHERE id = ?",
+        params![source_id],
+        |row| row.get(0),
+    )?)
+}
+
+pub fn get_guide_updated(source_id: i64) -> Result<Option<i64>> {
+    let sql = get_conn()?;
+    Ok(sql.query_row(
+        "SELECT guide_updated FROM sources WHERE id = ?",
+        params![source_id],
+        |row| row.get(0),
+    )?)
+}
+
+// The source's livestreams with a guide id: guide id -> whether any of them
+// has an archive (whose past programmes are kept for catch-up).
+pub fn get_guide_channels(source_id: i64) -> Result<HashMap<String, bool>> {
+    let sql = get_conn()?;
+    let channels = sql
+        .prepare(
+            r#"
+            SELECT epg_id, MAX(COALESCE(tv_archive, 0))
+            FROM channels
+            WHERE source_id = ? AND media_type = ? AND epg_id IS NOT NULL
+            GROUP BY epg_id
+            "#,
+        )?
+        .query_map(params![source_id, media_type::LIVESTREAM], |row| {
+            Ok((row.get(0)?, row.get(1)?))
+        })?
+        .collect::<Result<HashMap<_, _>, _>>()?;
+    Ok(channels)
+}
+
+// Replaces the source's stored guide. Written in batches so other writes
+// (favorites, history) aren't held up for the whole import.
+pub fn replace_guide_programs(source_id: i64, programs: &[crate::guide::GuideProgram]) -> Result<()> {
+    const BATCH: usize = 5000;
+    let mut sql = get_conn()?;
+    sql.execute("DELETE FROM epg_programs WHERE source_id = ?", params![source_id])?;
+    for batch in programs.chunks(BATCH) {
+        let tx = sql.transaction()?;
+        {
+            let mut insert = tx.prepare_cached(
+                "INSERT INTO epg_programs (source_id, epg_id, start, stop, title, description) VALUES (?, ?, ?, ?, ?, ?)",
+            )?;
+            for p in batch {
+                insert.execute(params![source_id, p.epg_id, p.start, p.stop, p.title, p.description])?;
+            }
+        }
+        tx.commit()?;
+    }
+    sql.execute(
+        "UPDATE sources SET guide_updated = ? WHERE id = ?",
+        params![chrono::Utc::now().timestamp(), source_id],
+    )?;
+    Ok(())
+}
+
+// Removes every stored guide, e.g. when programme search is turned off.
+pub fn clear_guides() -> Result<()> {
+    let sql = get_conn()?;
+    sql.execute("DELETE FROM epg_programs", [])?;
+    sql.execute("UPDATE sources SET guide_updated = NULL", [])?;
+    Ok(())
+}
+
+const PROGRAM_SEARCH_LIMIT: i64 = 60;
+
+// Programmes whose title matches the query, on the livestreams the filters
+// allow (sources, locks, and the category or favorites being viewed). On now
+// first, then upcoming by start, then past ones (only on channels with an
+// archive) newest first.
+pub fn search_programs(filters: Filters, now: i64) -> Result<Vec<crate::types::ProgramMatch>> {
+    let query = filters.query.clone().unwrap_or_default();
+    if query.trim().chars().count() < 2 || filters.source_ids.is_empty() {
+        return Ok(vec![]);
+    }
+    let keywords: Vec<String> = match filters.use_keywords {
+        true => query
+            .split(' ')
+            .filter(|k| !k.is_empty())
+            .map(|k| format!("%{k}%"))
+            .collect(),
+        false => vec![format!("%{query}%")],
+    };
+    let mut channel_filter = String::new();
+    if !filters.include_locked {
+        channel_filter += &unlocked_channels_sql("c2.");
+    }
+    if let Some(group_id) = filters.group_id {
+        channel_filter += &format!("\n AND c2.group_id = {group_id}");
+    } else if filters.view_type == view_type::FAVORITES {
+        channel_filter += "\n AND c2.favorite = 1";
+    }
+    let sql_query = format!(
+        r#"
+        SELECT p.title AS p_title, p.description AS p_description,
+               p.start AS p_start, p.stop AS p_stop, c.*
+        FROM epg_programs p
+        JOIN channels c ON c.id = (
+          SELECT c2.id FROM channels c2
+          WHERE c2.source_id = p.source_id AND c2.epg_id = p.epg_id
+          AND c2.media_type = {live} AND c2.url IS NOT NULL {channel_filter}
+          ORDER BY c2.id LIMIT 1)
+        WHERE ({keywords})
+        AND p.source_id IN ({sources})
+        AND (p.stop > {now} OR c.tv_archive = 1)
+        ORDER BY
+          CASE WHEN p.start > {now} THEN 1 WHEN p.stop > {now} THEN 0 ELSE 2 END,
+          CASE WHEN p.stop > {now} THEN p.start ELSE -p.start END
+        LIMIT {PROGRAM_SEARCH_LIMIT}
+        "#,
+        live = media_type::LIVESTREAM,
+        keywords = std::iter::repeat("p.title LIKE ?")
+            .take(keywords.len())
+            .collect::<Vec<_>>()
+            .join(" AND "),
+        sources = generate_placeholders(filters.source_ids.len()),
+    );
+    let mut params: Vec<&dyn rusqlite::ToSql> = Vec::new();
+    params.extend(to_to_sql(&keywords));
+    params.extend(to_to_sql(&filters.source_ids));
+    let sql = get_conn()?;
+    let matches = sql
+        .prepare(&sql_query)?
+        .query_map(params_from_iter(params), |row| {
+            let channel = row_to_channel(row)?;
+            let stop: i64 = row.get("p_stop")?;
+            Ok(crate::types::ProgramMatch {
+                program: crate::types::EpgProgram {
+                    title: row.get("p_title")?,
+                    description: row.get("p_description")?,
+                    start: row.get("p_start")?,
+                    stop,
+                    has_archive: stop <= now && channel.tv_archive == Some(true),
+                    catchup_url: None,
+                },
+                channel,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(matches)
+}
+
 // --- Backup ---
 
 const LIST_SEPARATOR: char = '\u{1f}';
@@ -1823,6 +2010,7 @@ mod test_favorite_lists {
             tv_archive: None,
             season_id: None,
             episode_num: None,
+            epg_id: None,
             locked: false,
         }
     }
@@ -1958,6 +2146,7 @@ mod test_watch_progress {
             tv_archive: None,
             season_id: None,
             episode_num: None,
+            epg_id: None,
             locked: false,
         }
     }
@@ -1997,6 +2186,7 @@ mod test_watch_progress {
                         series_id: Some(77),
                         season_id: Some(season_id),
                         episode_num: Some(episode),
+                        epg_id: None,
                         locked: false,
                         url: Some(format!("http://example.local/series/{season_number}{episode}.mp4")),
                         ..movie(&format!("S{season_number}E{episode}"), source_id)
@@ -2154,6 +2344,7 @@ mod test_parental_locks {
             tv_archive: None,
             season_id: None,
             episode_num: None,
+            epg_id: None,
             locked: false,
         }
     }
@@ -2306,5 +2497,146 @@ mod test_parental_locks {
 
         delete_source(source_id).unwrap();
         assert!(get_favorite_groups().unwrap().iter().all(|(s, _)| *s != source_id));
+    }
+}
+
+#[cfg(test)]
+mod test_programme_search {
+    use super::*;
+    use crate::guide::GuideProgram;
+    use crate::types::Channel;
+
+    const NOW: i64 = 1_000_000;
+
+    fn live(name: &str, epg_id: &str, archive: bool, source_id: i64) -> Channel {
+        Channel {
+            id: None,
+            name: name.to_string(),
+            url: Some(format!("http://example.local/live/{name}.ts")),
+            group: Some(if name == "Late" { "Adult" } else { "General" }.to_string()),
+            image: None,
+            media_type: media_type::LIVESTREAM,
+            source_id: Some(source_id),
+            series_id: None,
+            group_id: None,
+            favorite: false,
+            stream_id: None,
+            tv_archive: Some(archive),
+            season_id: None,
+            episode_num: None,
+            locked: false,
+            epg_id: Some(epg_id.to_string()),
+        }
+    }
+
+    fn program(epg_id: &str, title: &str, start: i64, stop: i64) -> GuideProgram {
+        GuideProgram {
+            epg_id: epg_id.to_string(),
+            title: title.to_string(),
+            description: None,
+            start,
+            stop,
+        }
+    }
+
+    fn search(source_id: i64, query: &str, include_locked: bool) -> Vec<(String, String)> {
+        search_programs(
+            Filters {
+                query: Some(query.to_string()),
+                source_ids: vec![source_id],
+                media_types: None,
+                view_type: 0,
+                page: 1,
+                series_id: None,
+                group_id: None,
+                use_keywords: false,
+                sort: sort_type::PROVIDER,
+                season: None,
+                favorite_list_id: None,
+                include_locked,
+            },
+            NOW,
+        )
+        .unwrap()
+        .into_iter()
+        .map(|m| (m.program.title, m.channel.name))
+        .collect()
+    }
+
+    #[test]
+    fn finds_programmes_by_title() {
+        let _db = test_db::lock();
+        let source_id = test_db::source("guide", crate::source_type::M3U, None);
+        do_tx(|tx| {
+            let mut groups = HashMap::new();
+            for mut channel in [
+                live("News HD", "news", true, source_id),
+                live("News SD", "news", true, source_id),
+                live("Movies", "movies", false, source_id),
+                live("Late", "late", false, source_id),
+            ] {
+                set_channel_group_id(&mut groups, &mut channel, tx, &source_id)?;
+                insert_channel(tx, channel)?;
+            }
+            Ok(())
+        })
+        .unwrap();
+        let hour = 3600;
+        replace_guide_programs(
+            source_id,
+            &[
+                program("news", "World News", NOW - 3 * hour, NOW - 2 * hour),
+                program("news", "World News", NOW - 10, NOW + hour),
+                program("news", "World News", NOW + 2 * hour, NOW + 3 * hour),
+                program("movies", "News of the World", NOW - 2 * hour, NOW - hour),
+                program("movies", "Weather", NOW, NOW + hour),
+                program("late", "Late News", NOW + hour, NOW + 2 * hour),
+                program("unknown", "News elsewhere", NOW, NOW + hour),
+            ],
+        )
+        .unwrap();
+        assert!(get_guide_updated(source_id).unwrap().is_some());
+
+        // On now, then upcoming, then past; past only with an archive. Each
+        // programme shows once, on the first matching channel.
+        let news = |s: &str| ("World News".to_string(), s.to_string());
+        assert_eq!(
+            search(source_id, "news", true),
+            [
+                news("News HD"),
+                ("Late News".to_string(), "Late".to_string()),
+                news("News HD"),
+                news("News HD"),
+            ]
+        );
+        assert_eq!(search(source_id, "weather", true).len(), 1);
+        assert!(search(source_id, "w", true).is_empty());
+
+        // Locked categories are left out unless unlocked
+        let adult = search_group(Filters {
+            view_type: view_type::CATEGORIES,
+            query: None,
+            source_ids: vec![source_id],
+            media_types: Some(vec![media_type::LIVESTREAM]),
+            page: 1,
+            series_id: None,
+            group_id: None,
+            use_keywords: false,
+            sort: sort_type::PROVIDER,
+            season: None,
+            favorite_list_id: None,
+            include_locked: true,
+        })
+        .unwrap()
+        .into_iter()
+        .find(|g| g.name == "Adult")
+        .unwrap();
+        set_group_locked(adult.id.unwrap(), true).unwrap();
+        assert_eq!(search(source_id, "late", false).len(), 0);
+        assert_eq!(search(source_id, "late", true).len(), 1);
+
+        clear_guides().unwrap();
+        assert!(search(source_id, "news", true).is_empty());
+        delete_source(source_id).unwrap();
     }
 }

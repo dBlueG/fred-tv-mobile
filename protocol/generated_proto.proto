@@ -59,6 +59,7 @@ message Settings {
   optional uint32 autoplay_countdown_seconds = 17;
   optional bool show_epg = 18;
   optional string parental_pin = 19;
+  optional bool search_programmes = 20;
 }
 
 enum MediaType {
@@ -161,6 +162,15 @@ message EpgProgramList {
   repeated EpgProgram programs = 1;
 }
 
+message ProgramMatch {
+  Channel channel = 1;
+  EpgProgram program = 2;
+}
+
+message ProgramMatchList {
+  repeated ProgramMatch items = 1;
+}
+
 message SetLocked {
   int64 id = 1;
   bool locked = 2;
@@ -249,6 +259,7 @@ message FFIResult {
     Channel channel = 18;
     EpgNowNextList epg_now_next = 19;
     EpgProgramList epg_programs = 20;
+    ProgramMatchList program_matches = 21;
   }
 }
 

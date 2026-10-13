@@ -30,6 +30,10 @@ static ID_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r#"tvg-id="(?P<id>[^"]*)""#).unwrap());
 static LOGO_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r#"tvg-logo="(?P<logo>[^"]*)""#).unwrap());
+// The playlist's programme guide, in the #EXTM3U header.
+static GUIDE_URL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r#"(?i)(?:url-tvg|x-tvg-url|tvg-url)="(?P<url>[^"]*)""#).unwrap()
+});
 static GROUP_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r#"group-title="(?P<group>[^"]*)""#).unwrap());
 
@@ -87,7 +91,14 @@ pub fn read_m3u8(mut source: Source, wipe: bool) -> Result<()> {
             }
         };
         let l1_upper = l1.to_uppercase();
-        if l1_upper.starts_with("#EXTINF") {
+        if l1_upper.starts_with("#EXTM3U") {
+            // Several guides may be listed, separated by commas; the first is used.
+            let guide = GUIDE_URL_REGEX
+                .captures(&l1)
+                .and_then(extract_non_empty_capture)
+                .and_then(|urls| urls.split(',').map(|u| u.trim().to_string()).find(|u| !u.is_empty()));
+            sql::set_source_epg_url(&tx, processing.source_id, guide.as_deref())?;
+        } else if l1_upper.starts_with("#EXTINF") {
             try_commit_channel(&mut processing, &tx);
             processing.channel_line = Some(l1);
             processing.channel_headers_set = false;
@@ -257,6 +268,11 @@ fn get_channel_from_lines(first: String, mut second: String, source_id: i64) -> 
     let image = LOGO_REGEX
         .captures(&first)
         .and_then(extract_non_empty_capture);
+    let epg_id = ID_REGEX
+        .captures(&first)
+        .and_then(extract_non_empty_capture)
+        .map(|id| id.trim().to_string())
+        .filter(|id| !id.is_empty());
     let channel = Channel {
         id: None,
         name: name.trim().to_string(),
@@ -272,6 +288,7 @@ fn get_channel_from_lines(first: String, mut second: String, source_id: i64) -> 
         tv_archive: None,
         season_id: None,
         episode_num: None,
+        epg_id,
         locked: false,
     };
     Ok(channel)

@@ -1848,6 +1848,67 @@ class RustLibBindings {
         void Function(int, FfiCallback, ffi.Pointer<ffi.Uint8>, int)
       >();
 
+  void update_guides(
+    int task_id,
+    FfiCallback callback,
+    ffi.Pointer<ffi.Uint8> ptr,
+    int len,
+  ) {
+    return _update_guides(task_id, callback, ptr, len);
+  }
+
+  late final _update_guidesPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Uint64,
+            FfiCallback,
+            ffi.Pointer<ffi.Uint8>,
+            ffi.Size,
+          )
+        >
+      >('update_guides');
+  late final _update_guides = _update_guidesPtr
+      .asFunction<
+        void Function(int, FfiCallback, ffi.Pointer<ffi.Uint8>, int)
+      >();
+
+  void clear_guides(int task_id, FfiCallback callback) {
+    return _clear_guides(task_id, callback);
+  }
+
+  late final _clear_guidesPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Uint64, FfiCallback)>>(
+        'clear_guides',
+      );
+  late final _clear_guides = _clear_guidesPtr
+      .asFunction<void Function(int, FfiCallback)>();
+
+  void search_programs(
+    int task_id,
+    FfiCallback callback,
+    ffi.Pointer<ffi.Uint8> ptr,
+    int len,
+  ) {
+    return _search_programs(task_id, callback, ptr, len);
+  }
+
+  late final _search_programsPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Uint64,
+            FfiCallback,
+            ffi.Pointer<ffi.Uint8>,
+            ffi.Size,
+          )
+        >
+      >('search_programs');
+  late final _search_programs = _search_programsPtr
+      .asFunction<
+        void Function(int, FfiCallback, ffi.Pointer<ffi.Uint8>, int)
+      >();
+
   void favorite_group(
     int task_id,
     FfiCallback callback,

@@ -505,6 +505,7 @@ class Settings extends $pb.GeneratedMessage {
     $core.int? autoplayCountdownSeconds,
     $core.bool? showEpg,
     $core.String? parentalPin,
+    $core.bool? searchProgrammes,
   }) {
     final result = create();
     if (useStreamCaching != null) result.useStreamCaching = useStreamCaching;
@@ -531,6 +532,7 @@ class Settings extends $pb.GeneratedMessage {
       result.autoplayCountdownSeconds = autoplayCountdownSeconds;
     if (showEpg != null) result.showEpg = showEpg;
     if (parentalPin != null) result.parentalPin = parentalPin;
+    if (searchProgrammes != null) result.searchProgrammes = searchProgrammes;
     return result;
   }
 
@@ -571,6 +573,7 @@ class Settings extends $pb.GeneratedMessage {
         fieldType: $pb.PbFieldType.OU3)
     ..aOB(18, _omitFieldNames ? '' : 'showEpg')
     ..aOS(19, _omitFieldNames ? '' : 'parentalPin')
+    ..aOB(20, _omitFieldNames ? '' : 'searchProgrammes')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -762,6 +765,15 @@ class Settings extends $pb.GeneratedMessage {
   $core.bool hasParentalPin() => $_has(18);
   @$pb.TagNumber(19)
   void clearParentalPin() => $_clearField(19);
+
+  @$pb.TagNumber(20)
+  $core.bool get searchProgrammes => $_getBF(19);
+  @$pb.TagNumber(20)
+  set searchProgrammes($core.bool value) => $_setBool(19, value);
+  @$pb.TagNumber(20)
+  $core.bool hasSearchProgrammes() => $_has(19);
+  @$pb.TagNumber(20)
+  void clearSearchProgrammes() => $_clearField(20);
 }
 
 class Filters extends $pb.GeneratedMessage {
@@ -1841,6 +1853,129 @@ class EpgProgramList extends $pb.GeneratedMessage {
   $pb.PbList<EpgProgram> get programs => $_getList(0);
 }
 
+class ProgramMatch extends $pb.GeneratedMessage {
+  factory ProgramMatch({
+    Channel? channel,
+    EpgProgram? program,
+  }) {
+    final result = create();
+    if (channel != null) result.channel = channel;
+    if (program != null) result.program = program;
+    return result;
+  }
+
+  ProgramMatch._();
+
+  factory ProgramMatch.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ProgramMatch.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ProgramMatch',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'generated_proto'),
+      createEmptyInstance: create)
+    ..aOM<Channel>(1, _omitFieldNames ? '' : 'channel',
+        subBuilder: Channel.create)
+    ..aOM<EpgProgram>(2, _omitFieldNames ? '' : 'program',
+        subBuilder: EpgProgram.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ProgramMatch clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ProgramMatch copyWith(void Function(ProgramMatch) updates) =>
+      super.copyWith((message) => updates(message as ProgramMatch))
+          as ProgramMatch;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ProgramMatch create() => ProgramMatch._();
+  @$core.override
+  ProgramMatch createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ProgramMatch getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ProgramMatch>(create);
+  static ProgramMatch? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  Channel get channel => $_getN(0);
+  @$pb.TagNumber(1)
+  set channel(Channel value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasChannel() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearChannel() => $_clearField(1);
+  @$pb.TagNumber(1)
+  Channel ensureChannel() => $_ensure(0);
+
+  @$pb.TagNumber(2)
+  EpgProgram get program => $_getN(1);
+  @$pb.TagNumber(2)
+  set program(EpgProgram value) => $_setField(2, value);
+  @$pb.TagNumber(2)
+  $core.bool hasProgram() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearProgram() => $_clearField(2);
+  @$pb.TagNumber(2)
+  EpgProgram ensureProgram() => $_ensure(1);
+}
+
+class ProgramMatchList extends $pb.GeneratedMessage {
+  factory ProgramMatchList({
+    $core.Iterable<ProgramMatch>? items,
+  }) {
+    final result = create();
+    if (items != null) result.items.addAll(items);
+    return result;
+  }
+
+  ProgramMatchList._();
+
+  factory ProgramMatchList.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ProgramMatchList.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ProgramMatchList',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'generated_proto'),
+      createEmptyInstance: create)
+    ..pPM<ProgramMatch>(1, _omitFieldNames ? '' : 'items',
+        subBuilder: ProgramMatch.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ProgramMatchList clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ProgramMatchList copyWith(void Function(ProgramMatchList) updates) =>
+      super.copyWith((message) => updates(message as ProgramMatchList))
+          as ProgramMatchList;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ProgramMatchList create() => ProgramMatchList._();
+  @$core.override
+  ProgramMatchList createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ProgramMatchList getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ProgramMatchList>(create);
+  static ProgramMatchList? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbList<ProgramMatch> get items => $_getList(0);
+}
+
 class SetLocked extends $pb.GeneratedMessage {
   factory SetLocked({
     $fixnum.Int64? id,
@@ -2740,6 +2875,7 @@ enum FFIResult_Data {
   channel,
   epgNowNext,
   epgPrograms,
+  programMatches,
   notSet
 }
 
@@ -2764,6 +2900,7 @@ class FFIResult extends $pb.GeneratedMessage {
     Channel? channel,
     EpgNowNextList? epgNowNext,
     EpgProgramList? epgPrograms,
+    ProgramMatchList? programMatches,
   }) {
     final result = create();
     if (success != null) result.success = success;
@@ -2786,6 +2923,7 @@ class FFIResult extends $pb.GeneratedMessage {
     if (channel != null) result.channel = channel;
     if (epgNowNext != null) result.epgNowNext = epgNowNext;
     if (epgPrograms != null) result.epgPrograms = epgPrograms;
+    if (programMatches != null) result.programMatches = programMatches;
     return result;
   }
 
@@ -2816,6 +2954,7 @@ class FFIResult extends $pb.GeneratedMessage {
     18: FFIResult_Data.channel,
     19: FFIResult_Data.epgNowNext,
     20: FFIResult_Data.epgPrograms,
+    21: FFIResult_Data.programMatches,
     0: FFIResult_Data.notSet
   };
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
@@ -2823,7 +2962,7 @@ class FFIResult extends $pb.GeneratedMessage {
       package:
           const $pb.PackageName(_omitMessageNames ? '' : 'generated_proto'),
       createEmptyInstance: create)
-    ..oo(0, [3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20])
+    ..oo(0, [3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21])
     ..aOB(1, _omitFieldNames ? '' : 'success')
     ..aOS(2, _omitFieldNames ? '' : 'errorMessage')
     ..aOM<Settings>(3, _omitFieldNames ? '' : 'settings',
@@ -2860,6 +2999,8 @@ class FFIResult extends $pb.GeneratedMessage {
         subBuilder: EpgNowNextList.create)
     ..aOM<EpgProgramList>(20, _omitFieldNames ? '' : 'epgPrograms',
         subBuilder: EpgProgramList.create)
+    ..aOM<ProgramMatchList>(21, _omitFieldNames ? '' : 'programMatches',
+        subBuilder: ProgramMatchList.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2897,6 +3038,7 @@ class FFIResult extends $pb.GeneratedMessage {
   @$pb.TagNumber(18)
   @$pb.TagNumber(19)
   @$pb.TagNumber(20)
+  @$pb.TagNumber(21)
   FFIResult_Data whichData() => _FFIResult_DataByTag[$_whichOneof(0)]!;
   @$pb.TagNumber(3)
   @$pb.TagNumber(4)
@@ -2915,6 +3057,7 @@ class FFIResult extends $pb.GeneratedMessage {
   @$pb.TagNumber(18)
   @$pb.TagNumber(19)
   @$pb.TagNumber(20)
+  @$pb.TagNumber(21)
   void clearData() => $_clearField($_whichOneof(0));
 
   @$pb.TagNumber(1)
@@ -3122,6 +3265,17 @@ class FFIResult extends $pb.GeneratedMessage {
   void clearEpgPrograms() => $_clearField(20);
   @$pb.TagNumber(20)
   EpgProgramList ensureEpgPrograms() => $_ensure(18);
+
+  @$pb.TagNumber(21)
+  ProgramMatchList get programMatches => $_getN(19);
+  @$pb.TagNumber(21)
+  set programMatches(ProgramMatchList value) => $_setField(21, value);
+  @$pb.TagNumber(21)
+  $core.bool hasProgramMatches() => $_has(19);
+  @$pb.TagNumber(21)
+  void clearProgramMatches() => $_clearField(21);
+  @$pb.TagNumber(21)
+  ProgramMatchList ensureProgramMatches() => $_ensure(19);
 }
 
 const $core.bool _omitFieldNames =

@@ -23,6 +23,8 @@ class Settings {
   // Home
   bool showContinueWatching;
   bool showEpg;
+  // Downloads the full guide so search also finds programmes.
+  bool searchProgrammes;
   String? parentalPin;
   Settings({
     this.defaultView = ViewType.all,
@@ -43,6 +45,7 @@ class Settings {
     this.autoplayCountdownSeconds = 10,
     this.showContinueWatching = true,
     this.showEpg = true,
+    this.searchProgrammes = true,
     this.parentalPin,
   });
 

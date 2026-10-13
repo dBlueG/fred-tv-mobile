@@ -20,6 +20,7 @@ import 'package:open_tv/models/node.dart';
 import 'package:open_tv/models/node_type.dart';
 import 'package:open_tv/models/sort_type.dart';
 import 'package:open_tv/models/view_type.dart';
+import 'package:open_tv/programme_results.dart';
 import 'package:open_tv/select_dialog.dart';
 import 'package:open_tv/error.dart';
 import 'package:open_tv/utils.dart';
@@ -55,6 +56,9 @@ class _HomeState extends State<Home> {
   int? previousScroll;
   bool scrolledDeepEnough = false;
   bool showEpg = false;
+  bool searchProgrammes = false;
+  // Guide programmes matching the search, shown above the channels.
+  List<ProgramMatch> programmes = [];
   // Now/next by channel id, for the loaded livestreams.
   final Map<int, EpgNowNext> epg = {};
   Timer? _epgTimer;
@@ -70,7 +74,9 @@ class _HomeState extends State<Home> {
   }
 
   Future<void> initializeAsync() async {
-    showEpg = (await NativeBridge.instance.getSettings()).showEpg;
+    final startSettings = await NativeBridge.instance.getSettings();
+    showEpg = startSettings.showEpg;
+    searchProgrammes = startSettings.searchProgrammes;
     if (showEpg) {
       // Keeps progress bars moving and refetches programmes that have ended.
       _epgTimer = Timer.periodic(const Duration(minutes: 1), (_) {
@@ -141,11 +147,15 @@ class _HomeState extends State<Home> {
       final favoriteGroups = !more && _showFavoriteGroups
           ? await NativeBridge.instance.getFavoriteGroups(widget.home.filters)
           : null;
+      final programmes = !more && _searchesProgrammes
+          ? await NativeBridge.instance.searchPrograms(widget.home.filters)
+          : null;
       if (!mounted) return;
       if (!more) {
         setState(() {
           this.channels = channels;
           this.favoriteGroups = favoriteGroups ?? [];
+          this.programmes = programmes ?? [];
         });
       } else {
         setState(() {
@@ -319,6 +329,17 @@ class _HomeState extends State<Home> {
   bool get _isFavoritesView =>
       widget.home.filters.viewType == ViewType.favorites &&
       widget.home.node == null;
+
+  // Programmes are searched from All, Favorites and inside a category, when
+  // livestreams are shown.
+  bool get _searchesProgrammes =>
+      searchProgrammes &&
+      (widget.home.filters.query ?? "").trim().length >= 2 &&
+      widget.home.filters.viewType != ViewType.history &&
+      widget.home.filters.seriesId == null &&
+      (widget.home.filters.viewType != ViewType.categories ||
+          widget.home.filters.groupId != null) &&
+      widget.home.filters.mediaTypes?.contains(MediaType.livestream) != false;
 
   // Favorite lists only hold channels, so categories show under "All".
   bool get _showFavoriteGroups =>
@@ -516,6 +537,10 @@ class _HomeState extends State<Home> {
                           load(false);
                         },
                       ),
+                    ),
+                  if (programmes.isNotEmpty)
+                    SliverToBoxAdapter(
+                      child: ProgrammeResults(matches: programmes),
                     ),
                   if (favoriteGroups.isNotEmpty) ...[
                     _sectionTitle("Categories"),

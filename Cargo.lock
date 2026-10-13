@@ -430,10 +430,12 @@ dependencies = [
  "anyhow",
  "base64",
  "chrono",
+ "flate2",
  "futures",
  "log",
  "prost",
  "prost-types",
+ "quick-xml",
  "r2d2",
  "r2d2_sqlite",
  "regex",
@@ -1301,6 +1303,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f94967dc7688f3054c7fac87473ffae4cc4c3904800e2d9f5b857246d8963b0a"
 dependencies = [
  "prost",
+]
+
+[[package]]
+name = "quick-xml"
+version = "0.38.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b66c2058c55a409d601666cffe35f04333cf1013010882cec174a7467cd4e21c"
+dependencies = [
+ "memchr",
 ]
 
 [[package]]
