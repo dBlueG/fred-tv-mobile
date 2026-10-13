@@ -18,6 +18,7 @@ project (`Fredolx/fred-tv-mobile`).
 | 11 | [Continue Watching, auto-play next episode, backup and restore](#11-continue-watching-auto-play-next-episode-backup-and-restore) | 2026-10-12 | Rust core, Flutter UI, Android player |
 | 12 | [Programme guide (now/next), catch-up, parental PIN](#12-programme-guide-nownext-catch-up-parental-pin) | 2026-10-12 | Rust core, Flutter UI |
 | 13 | [Fix: list opening in landscape after the player; resume prompt](#13-fix-list-opening-in-landscape-after-the-player-resume-prompt) | 2026-10-13 | Flutter UI, Android player |
+| 14 | [Favorite categories](#14-favorite-categories) | 2026-10-13 | Rust core, Flutter UI |
 
 Changes 1–4 and 6 only affect the Android app. iOS, macOS, Windows and Linux
 use `media_kit` for playback, so their players are unchanged. Change 7 is in the
@@ -970,3 +971,40 @@ phone sideways (or lying down) after leaving the player turned the list.
 - `ExoPlayerView.kt`: `onPipClosed` pauses and tells Flutter to close the player
   (removed `pausedByPipClose` / `onHostResumed`). `MainActivity.kt`: no
   `onResume` hook.
+
+---
+
+## 14. Favorite categories
+
+**Date:** 2026-10-13
+**Branch:** `player-and-home-features`
+**Status:** Rust test added; tested on the Android emulator.
+
+### Behavior
+
+- Long-press a category (or hold OK on a remote) to add it to or remove it from
+  favorites. Favorite categories show a star.
+- **Categories** lists favorite categories first, then the rest, each in the
+  chosen sort order.
+- **Favorites** (the "All" chip) shows a **Categories** section with the favorite
+  categories above the favorite channels. Search filters both. Favorite lists
+  hold channels only, so the section is hidden while a list is selected.
+- Stored by source and category name (`favorite_groups`), like parental locks,
+  so they survive refreshes. Locked categories stay hidden while locked.
+  Deleting a source removes its favorite categories. Backups include them
+  (`favorite_groups`).
+
+### File changes
+
+- `src/sql.rs`: seventh migration (`favorite_groups`); `search_group` returns a
+  `favorite` flag and sorts favorites first; `search_favorite_groups`;
+  `favorite_group`, `get_favorite_groups`, `favorite_group_by_name`. Locked and
+  favorite categories share helpers. Test
+  `favorite_categories_come_first_and_survive_refresh`.
+- `src/backup.rs`, `src/types.rs`: `favorite_groups` in backups;
+  `BackupLockedGroup` renamed `BackupGroup`.
+- `src/lib.rs`: FFI `favorite_group`, `get_favorite_groups`. Proto: message
+  `FavoriteGroup`. Bindings added by hand. Android `.so` libraries rebuilt.
+- `flutter/lib/channel_tile.dart`: long-press on a category toggles its favorite.
+- `home.dart`: Categories section in Favorites. `native_bridge.dart`,
+  `task_service.dart`: `favoriteGroup`, `getFavoriteGroups`.

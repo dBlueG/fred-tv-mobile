@@ -521,6 +521,39 @@ pub extern "C" fn set_group_locked(task_id: u64, callback: FfiCallback, ptr: *co
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn favorite_group(task_id: u64, callback: FfiCallback, ptr: *const u8, len: usize) {
+    c::queue_blocking_with_message(
+        task_id,
+        callback,
+        ptr,
+        len,
+        |msg: generated_proto::FavoriteGroup| sql::favorite_group(msg.group_id, msg.favorite),
+    )
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn get_favorite_groups(
+    task_id: u64,
+    callback: FfiCallback,
+    ptr: *const u8,
+    len: usize,
+) {
+    c::queue_blocking_with_message(
+        task_id,
+        callback,
+        ptr,
+        len,
+        |filters: crate::generated_proto::Filters| {
+            Ok(generated_proto::ffi_result::Data::ChannelList(
+                crate::generated_proto::ChannelList::from(sql::search_favorite_groups(
+                    crate::types::Filters::from(filters),
+                )?),
+            ))
+        },
+    )
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn set_source_locked(task_id: u64, callback: FfiCallback, ptr: *const u8, len: usize) {
     c::queue_blocking_with_message(
         task_id,

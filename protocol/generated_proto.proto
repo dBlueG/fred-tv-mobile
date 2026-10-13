@@ -166,6 +166,11 @@ message SetLocked {
   bool locked = 2;
 }
 
+message FavoriteGroup {
+  int64 group_id = 1;
+  bool favorite = 2;
+}
+
 message ContinueWatchingList {
   repeated ContinueWatchingItem items = 1;
 }

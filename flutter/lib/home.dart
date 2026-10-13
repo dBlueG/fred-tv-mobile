@@ -43,6 +43,8 @@ class _HomeState extends State<Home> {
   bool reachedMax = false;
   final int pageSize = 36;
   List<Channel> channels = [];
+  // Favorite categories, shown above the channels in the Favorites view.
+  List<Channel> favoriteGroups = [];
   TextEditingController searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   final FocusNode _keywordsFocusNode = FocusNode(skipTraversal: true);
@@ -136,9 +138,14 @@ class _HomeState extends State<Home> {
       List<Channel> channels = await NativeBridge.instance.getChannels(
         widget.home.filters,
       );
+      final favoriteGroups = !more && _showFavoriteGroups
+          ? await NativeBridge.instance.getFavoriteGroups(widget.home.filters)
+          : null;
+      if (!mounted) return;
       if (!more) {
         setState(() {
           this.channels = channels;
+          this.favoriteGroups = favoriteGroups ?? [];
         });
       } else {
         setState(() {
@@ -313,6 +320,39 @@ class _HomeState extends State<Home> {
       widget.home.filters.viewType == ViewType.favorites &&
       widget.home.node == null;
 
+  // Favorite lists only hold channels, so categories show under "All".
+  bool get _showFavoriteGroups =>
+      _isFavoritesView && widget.home.filters.favoriteListId == null;
+
+  Widget _sectionTitle(String title) => SliverToBoxAdapter(
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: Text(title, style: Theme.of(context).textTheme.titleSmall),
+    ),
+  );
+
+  Widget _tileGrid(
+    List<Channel> items,
+    int crossAxisCount,
+    Widget Function(BuildContext context, int index) builder,
+  ) {
+    return SliverPadding(
+      padding: const EdgeInsets.fromLTRB(10, 5, 10, 10),
+      sliver: SliverGrid(
+        delegate: SliverChildBuilderDelegate(
+          builder,
+          childCount: items.length,
+        ),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: crossAxisCount,
+          mainAxisExtent: 100,
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+        ),
+      ),
+    );
+  }
+
   ViewType getStartingView() {
     if (widget.home.filters.groupId != null) {
       return ViewType.categories;
@@ -477,37 +517,42 @@ class _HomeState extends State<Home> {
                         },
                       ),
                     ),
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(10, 5, 10, 10),
-                    sliver: SliverGrid(
-                      delegate: SliverChildBuilderDelegate((context, index) {
-                        final channel = channels[index];
-                        return ChannelTile(
-                          channel: channel,
-                          parentContext: context,
-                          setNode: setNode,
-                          autofocus: index == currentlyFocusedChannel,
-                          onSelect: () => currentlyFocusedChannel = index,
-                          onFavoriteChanged: _isFavoritesView
-                              ? () => load(false)
-                              : null,
-                          epg: epg[channel.id],
-                          playlist: () => ChannelPlaylist.create(
-                            filters: widget.home.filters,
-                            channels: channels,
-                            current: channel,
-                            reachedEnd: reachedMax,
-                          ),
-                        );
-                      }, childCount: channels.length),
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: crossAxisCount,
-                        mainAxisExtent: 100,
-                        mainAxisSpacing: 12,
-                        crossAxisSpacing: 12,
+                  if (favoriteGroups.isNotEmpty) ...[
+                    _sectionTitle("Categories"),
+                    _tileGrid(favoriteGroups, crossAxisCount, (
+                      context,
+                      index,
+                    ) {
+                      return ChannelTile(
+                        channel: favoriteGroups[index],
+                        parentContext: context,
+                        setNode: setNode,
+                        onSelect: () {},
+                        onFavoriteChanged: () => load(false),
+                      );
+                    }),
+                    if (channels.isNotEmpty) _sectionTitle("Channels"),
+                  ],
+                  _tileGrid(channels, crossAxisCount, (context, index) {
+                    final channel = channels[index];
+                    return ChannelTile(
+                      channel: channel,
+                      parentContext: context,
+                      setNode: setNode,
+                      autofocus: index == currentlyFocusedChannel,
+                      onSelect: () => currentlyFocusedChannel = index,
+                      onFavoriteChanged: _isFavoritesView
+                          ? () => load(false)
+                          : null,
+                      epg: epg[channel.id],
+                      playlist: () => ChannelPlaylist.create(
+                        filters: widget.home.filters,
+                        channels: channels,
+                        current: channel,
+                        reachedEnd: reachedMax,
                       ),
-                    ),
-                  ),
+                    );
+                  }),
                 ],
               );
             },

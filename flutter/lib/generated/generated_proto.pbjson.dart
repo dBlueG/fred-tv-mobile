@@ -880,6 +880,20 @@ const SetLocked$json = {
 final $typed_data.Uint8List setLockedDescriptor = $convert.base64Decode(
     'CglTZXRMb2NrZWQSDgoCaWQYASABKANSAmlkEhYKBmxvY2tlZBgCIAEoCFIGbG9ja2Vk');
 
+@$core.Deprecated('Use favoriteGroupDescriptor instead')
+const FavoriteGroup$json = {
+  '1': 'FavoriteGroup',
+  '2': [
+    {'1': 'group_id', '3': 1, '4': 1, '5': 3, '10': 'groupId'},
+    {'1': 'favorite', '3': 2, '4': 1, '5': 8, '10': 'favorite'},
+  ],
+};
+
+/// Descriptor for `FavoriteGroup`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List favoriteGroupDescriptor = $convert.base64Decode(
+    'Cg1GYXZvcml0ZUdyb3VwEhkKCGdyb3VwX2lkGAEgASgDUgdncm91cElkEhoKCGZhdm9yaXRlGA'
+    'IgASgIUghmYXZvcml0ZQ==');
+
 @$core.Deprecated('Use continueWatchingListDescriptor instead')
 const ContinueWatchingList$json = {
   '1': 'ContinueWatchingList',

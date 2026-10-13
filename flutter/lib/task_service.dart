@@ -34,6 +34,15 @@ class TaskService {
     return true;
   }
 
+  Future<bool> favoriteGroup(int groupId, bool value) async {
+    if (busy) {
+      notifyBusy();
+      return false;
+    }
+    await NativeBridge.instance.favoriteGroup(groupId, value);
+    return true;
+  }
+
   Future<bool> setChannelFavoriteLists(
     int channelId,
     bool favorite,

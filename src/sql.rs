@@ -243,6 +243,16 @@ CREATE TABLE "locked_groups" (
 
 ALTER TABLE sources ADD COLUMN locked integer DEFAULT 0;
 "#,
+    ),
+    // Favorite categories, by name like locked ones, so they survive a refresh.
+    M::up(
+        r#"
+CREATE TABLE "favorite_groups" (
+  "source_id" integer NOT NULL,
+  "name"      varchar(100) NOT NULL,
+  PRIMARY KEY (source_id, name)
+);
+"#,
     )]);
     migrations.to_latest(&mut sql)?;
     Ok(())
@@ -687,8 +697,19 @@ fn unlocked_channels_sql(alias: &str) -> String {
 }
 
 const GROUP_LOCKED_SQL: &str = "EXISTS (SELECT 1 FROM locked_groups lg WHERE lg.source_id = groups.source_id AND lg.name = groups.name)";
+const GROUP_FAVORITE_SQL: &str = "EXISTS (SELECT 1 FROM favorite_groups fg WHERE fg.source_id = groups.source_id AND fg.name = groups.name)";
 
+// Categories, favorite ones first.
 pub fn search_group(filters: Filters) -> Result<Vec<Channel>> {
+    search_groups(filters, false)
+}
+
+// Only the favorite categories, for the Favorites view.
+pub fn search_favorite_groups(filters: Filters) -> Result<Vec<Channel>> {
+    search_groups(filters, true)
+}
+
+fn search_groups(filters: Filters, favorites_only: bool) -> Result<Vec<Channel>> {
     let sql = get_conn()?;
     let offset: u16 = filters.page as u16 * PAGE_SIZE as u16 - PAGE_SIZE as u16;
     let query = filters.query.unwrap_or("".to_string());
@@ -703,7 +724,7 @@ pub fn search_group(filters: Filters) -> Result<Vec<Channel>> {
     let mut params: Vec<&dyn rusqlite::ToSql> = Vec::with_capacity(2 + filters.source_ids.len());
     let mut sql_query = format!(
         r#"
-        SELECT *, {GROUP_LOCKED_SQL} AS locked
+        SELECT *, {GROUP_LOCKED_SQL} AS locked, {GROUP_FAVORITE_SQL} AS favorite
         FROM groups
         WHERE ({})
         AND source_id in ({})
@@ -718,14 +739,15 @@ pub fn search_group(filters: Filters) -> Result<Vec<Channel>> {
             "\nAND NOT {GROUP_LOCKED_SQL}\nAND source_id NOT IN (SELECT id FROM sources WHERE locked = 1)"
         );
     }
-    if filters.sort != sort_type::PROVIDER {
-        let order = match filters.sort {
-            sort_type::ALPHABETICAL_ASC => "ASC",
-            sort_type::ALPHABETICAL_DESC => "DESC",
-            _ => "ASC",
-        };
-        sql_query += &format!("\nORDER BY name {}", order);
+    if favorites_only {
+        sql_query += &format!("\nAND {GROUP_FAVORITE_SQL}");
     }
+    // Groups are inserted in the provider's order, so `id` keeps it.
+    sql_query += match filters.sort {
+        sort_type::PROVIDER => "\nORDER BY favorite DESC, id",
+        sort_type::ALPHABETICAL_DESC => "\nORDER BY favorite DESC, name DESC",
+        _ => "\nORDER BY favorite DESC, name ASC",
+    };
     sql_query += "\nLIMIT ?, ?";
     params.extend(to_to_sql(&keywords));
     params.extend(to_to_sql(&filters.source_ids));
@@ -750,7 +772,7 @@ fn row_to_group(row: &Row) -> std::result::Result<Channel, rusqlite::Error> {
         url: None,
         series_id: None,
         group_id: None,
-        favorite: false,
+        favorite: row.get("favorite")?,
         source_id: row.get("source_id")?,
         stream_id: None,
         tv_archive: None,
@@ -837,6 +859,7 @@ pub fn delete_source(id: i64) -> Result<()> {
     delete_favorite_list_entries_by_source(&sql, id)?;
     sql.execute("DELETE FROM movie_positions WHERE source_id = ?", params![id])?;
     sql.execute("DELETE FROM locked_groups WHERE source_id = ?", params![id])?;
+    sql.execute("DELETE FROM favorite_groups WHERE source_id = ?", params![id])?;
     sql.execute(
         r#"
         DELETE FROM channels
@@ -1434,14 +1457,46 @@ pub fn get_next_episode(channel_id: i64) -> Result<Option<Channel>> {
 
 // --- Parental locks ---
 
-pub fn set_group_locked(group_id: i64, locked: bool) -> Result<()> {
+// Locked and favorite categories are kept as (source_id, name) in their own
+// tables, so the new group ids of a refresh don't lose them.
+fn set_group_flag(table: &str, group_id: i64, value: bool) -> Result<()> {
     let sql = get_conn()?;
-    let query = match locked {
-        true => "INSERT OR IGNORE INTO locked_groups (source_id, name) SELECT source_id, name FROM groups WHERE id = ?",
-        false => "DELETE FROM locked_groups WHERE (source_id, name) IN (SELECT source_id, name FROM groups WHERE id = ?)",
+    let query = match value {
+        true => format!(
+            "INSERT OR IGNORE INTO {table} (source_id, name) SELECT source_id, name FROM groups WHERE id = ?"
+        ),
+        false => format!(
+            "DELETE FROM {table} WHERE (source_id, name) IN (SELECT source_id, name FROM groups WHERE id = ?)"
+        ),
     };
-    sql.execute(query, params![group_id])?;
+    sql.execute(&query, params![group_id])?;
     Ok(())
+}
+
+fn get_flagged_groups(table: &str) -> Result<Vec<(i64, String)>> {
+    let sql = get_conn()?;
+    let groups = sql
+        .prepare(&format!("SELECT source_id, name FROM {table}"))?
+        .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(groups)
+}
+
+fn flag_group_by_name(table: &str, source_id: i64, name: &str) -> Result<()> {
+    let sql = get_conn()?;
+    sql.execute(
+        &format!("INSERT OR IGNORE INTO {table} (source_id, name) VALUES (?, ?)"),
+        params![source_id, name],
+    )?;
+    Ok(())
+}
+
+pub fn set_group_locked(group_id: i64, locked: bool) -> Result<()> {
+    set_group_flag("locked_groups", group_id, locked)
+}
+
+pub fn favorite_group(group_id: i64, favorite: bool) -> Result<()> {
+    set_group_flag("favorite_groups", group_id, favorite)
 }
 
 pub fn set_source_locked(source_id: i64, locked: bool) -> Result<()> {
@@ -1454,21 +1509,19 @@ pub fn set_source_locked(source_id: i64, locked: bool) -> Result<()> {
 }
 
 pub fn get_locked_groups() -> Result<Vec<(i64, String)>> {
-    let sql = get_conn()?;
-    let groups = sql
-        .prepare("SELECT source_id, name FROM locked_groups")?
-        .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
-        .collect::<Result<Vec<_>, _>>()?;
-    Ok(groups)
+    get_flagged_groups("locked_groups")
+}
+
+pub fn get_favorite_groups() -> Result<Vec<(i64, String)>> {
+    get_flagged_groups("favorite_groups")
 }
 
 pub fn lock_group_by_name(source_id: i64, name: &str) -> Result<()> {
-    let sql = get_conn()?;
-    sql.execute(
-        "INSERT OR IGNORE INTO locked_groups (source_id, name) VALUES (?, ?)",
-        params![source_id, name],
-    )?;
-    Ok(())
+    flag_group_by_name("locked_groups", source_id, name)
+}
+
+pub fn favorite_group_by_name(source_id: i64, name: &str) -> Result<()> {
+    flag_group_by_name("favorite_groups", source_id, name)
 }
 
 // --- EPG ---
@@ -2198,5 +2251,60 @@ mod test_parental_locks {
         set_group_locked(adult.id.unwrap(), true).unwrap();
         delete_source(source_id).unwrap();
         assert!(get_locked_groups().unwrap().iter().all(|(s, _)| *s != source_id));
+    }
+
+    fn group_id(source_id: i64, name: &str) -> i64 {
+        search(filters(source_id, view_type::CATEGORIES, true))
+            .unwrap()
+            .into_iter()
+            .find(|g| g.name == name)
+            .unwrap()
+            .id
+            .unwrap()
+    }
+
+    fn favorite_groups(source_id: i64, include_locked: bool) -> Vec<String> {
+        search_favorite_groups(filters(source_id, view_type::FAVORITES, include_locked))
+            .unwrap()
+            .into_iter()
+            .map(|g| g.name)
+            .collect()
+    }
+
+    #[test]
+    fn favorite_categories_come_first_and_survive_refresh() {
+        let _db = test_db::lock();
+        let source_id = test_db::source("favorite groups", crate::source_type::M3U, None);
+        refresh(source_id);
+        favorite_group(group_id(source_id, "News"), true).unwrap();
+        favorite_group(group_id(source_id, "Adult"), true).unwrap();
+
+        // Favorites first, then the rest, each in the chosen order
+        let listed: Vec<(String, bool)> = search(filters(source_id, view_type::CATEGORIES, true))
+            .unwrap()
+            .into_iter()
+            .map(|g| (g.name, g.favorite))
+            .collect();
+        assert_eq!(
+            listed,
+            [
+                ("Adult".to_string(), true),
+                ("News".to_string(), true),
+                ("Kids".to_string(), false)
+            ]
+        );
+        assert_eq!(favorite_groups(source_id, true), ["Adult", "News"]);
+
+        // Kept by name through a refresh; locked ones stay hidden while locked
+        refresh(source_id);
+        set_group_locked(group_id(source_id, "Adult"), true).unwrap();
+        assert_eq!(favorite_groups(source_id, false), ["News"]);
+        assert_eq!(favorite_groups(source_id, true), ["Adult", "News"]);
+
+        favorite_group(group_id(source_id, "News"), false).unwrap();
+        assert_eq!(favorite_groups(source_id, true), ["Adult"]);
+
+        delete_source(source_id).unwrap();
+        assert!(get_favorite_groups().unwrap().iter().all(|(s, _)| *s != source_id));
     }
 }

@@ -197,10 +197,37 @@ class _ChannelTileState extends State<ChannelTile> {
     if (mounted) _focusNode.requestFocus();
   }
 
+  // Categories have no lists; their favorite is toggled directly.
+  Future<void> favoriteGroup() async {
+    await Error.tryAsyncNoLoading(() async {
+      final favorite = !widget.channel.favorite;
+      if (!await TaskService.instance.favoriteGroup(
+        widget.channel.id!,
+        favorite,
+      )) {
+        return;
+      }
+      if (!mounted) return;
+      setState(() => widget.channel.favorite = favorite);
+      widget.onFavoriteChanged?.call();
+      Error.showSnackBar(
+        SnackBar(
+          persist: false,
+          content: Text(
+            favorite
+                ? "Category added to favorites"
+                : "Category removed from favorites",
+          ),
+          duration: const Duration(milliseconds: 800),
+        ),
+      );
+    });
+  }
+
   // Toggles the favorite directly while no lists exist, otherwise lets the
   // user choose which lists the channel belongs to.
   Future<void> favorite() async {
-    if (widget.channel.mediaType == MediaType.group) return;
+    if (widget.channel.mediaType == MediaType.group) return favoriteGroup();
     await Error.tryAsyncNoLoading(() async {
       final channelId = widget.channel.id!;
       final wasFavorite = widget.channel.favorite;

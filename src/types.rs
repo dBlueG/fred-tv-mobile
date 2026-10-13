@@ -162,11 +162,14 @@ pub struct Backup {
     #[serde(default)]
     pub positions: Vec<BackupPosition>,
     #[serde(default)]
-    pub locked_groups: Vec<BackupLockedGroup>,
+    pub locked_groups: Vec<BackupGroup>,
+    #[serde(default)]
+    pub favorite_groups: Vec<BackupGroup>,
 }
 
+// A category, by source and category name.
 #[derive(Clone, PartialEq, Debug, Deserialize, Serialize)]
-pub struct BackupLockedGroup {
+pub struct BackupGroup {
     pub source: String,
     pub name: String,
 }

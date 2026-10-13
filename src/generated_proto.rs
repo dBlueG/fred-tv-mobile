@@ -240,6 +240,13 @@ pub struct SetLocked {
     #[prost(bool, tag = "2")]
     pub locked: bool,
 }
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct FavoriteGroup {
+    #[prost(int64, tag = "1")]
+    pub group_id: i64,
+    #[prost(bool, tag = "2")]
+    pub favorite: bool,
+}
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ContinueWatchingList {
     #[prost(message, repeated, tag = "1")]

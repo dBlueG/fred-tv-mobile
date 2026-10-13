@@ -1848,6 +1848,56 @@ class RustLibBindings {
         void Function(int, FfiCallback, ffi.Pointer<ffi.Uint8>, int)
       >();
 
+  void favorite_group(
+    int task_id,
+    FfiCallback callback,
+    ffi.Pointer<ffi.Uint8> ptr,
+    int len,
+  ) {
+    return _favorite_group(task_id, callback, ptr, len);
+  }
+
+  late final _favorite_groupPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Uint64,
+            FfiCallback,
+            ffi.Pointer<ffi.Uint8>,
+            ffi.Size,
+          )
+        >
+      >('favorite_group');
+  late final _favorite_group = _favorite_groupPtr
+      .asFunction<
+        void Function(int, FfiCallback, ffi.Pointer<ffi.Uint8>, int)
+      >();
+
+  void get_favorite_groups(
+    int task_id,
+    FfiCallback callback,
+    ffi.Pointer<ffi.Uint8> ptr,
+    int len,
+  ) {
+    return _get_favorite_groups(task_id, callback, ptr, len);
+  }
+
+  late final _get_favorite_groupsPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Uint64,
+            FfiCallback,
+            ffi.Pointer<ffi.Uint8>,
+            ffi.Size,
+          )
+        >
+      >('get_favorite_groups');
+  late final _get_favorite_groups = _get_favorite_groupsPtr
+      .asFunction<
+        void Function(int, FfiCallback, ffi.Pointer<ffi.Uint8>, int)
+      >();
+
   void get_continue_watching(
     int task_id,
     FfiCallback callback,

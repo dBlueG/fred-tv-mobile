@@ -335,6 +335,23 @@ class NativeBridge {
     );
   }
 
+  Future<void> favoriteGroup(int groupId, bool favorite) async {
+    await _executeWithMsg(
+      pb.FavoriteGroup(groupId: Int64(groupId), favorite: favorite),
+      (id, ptr, len, cb) {
+        _bindings.favorite_group(id, cb, ptr, len);
+      },
+    );
+  }
+
+  // The favorite categories matching the filters' sources, media types and query.
+  Future<List<Channel>> getFavoriteGroups(Filters filters) async {
+    final result = await _executeWithMsg(filters.toProto(), (id, ptr, len, cb) {
+      _bindings.get_favorite_groups(id, cb, ptr, len);
+    });
+    return result.channelList.channels.map((c) => c.toDomain()).toList();
+  }
+
   Future<void> setSourceLocked(int sourceId, bool locked) async {
     await _executeWithMsg(
       pb.SetLocked(id: Int64(sourceId), locked: locked),

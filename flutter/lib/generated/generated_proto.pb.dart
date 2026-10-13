@@ -1907,6 +1907,73 @@ class SetLocked extends $pb.GeneratedMessage {
   void clearLocked() => $_clearField(2);
 }
 
+class FavoriteGroup extends $pb.GeneratedMessage {
+  factory FavoriteGroup({
+    $fixnum.Int64? groupId,
+    $core.bool? favorite,
+  }) {
+    final result = create();
+    if (groupId != null) result.groupId = groupId;
+    if (favorite != null) result.favorite = favorite;
+    return result;
+  }
+
+  FavoriteGroup._();
+
+  factory FavoriteGroup.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory FavoriteGroup.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'FavoriteGroup',
+      package:
+          const $pb.PackageName(_omitMessageNames ? '' : 'generated_proto'),
+      createEmptyInstance: create)
+    ..aInt64(1, _omitFieldNames ? '' : 'groupId')
+    ..aOB(2, _omitFieldNames ? '' : 'favorite')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  FavoriteGroup clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  FavoriteGroup copyWith(void Function(FavoriteGroup) updates) =>
+      super.copyWith((message) => updates(message as FavoriteGroup))
+          as FavoriteGroup;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static FavoriteGroup create() => FavoriteGroup._();
+  @$core.override
+  FavoriteGroup createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static FavoriteGroup getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<FavoriteGroup>(create);
+  static FavoriteGroup? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get groupId => $_getI64(0);
+  @$pb.TagNumber(1)
+  set groupId($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasGroupId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearGroupId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.bool get favorite => $_getBF(1);
+  @$pb.TagNumber(2)
+  set favorite($core.bool value) => $_setBool(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasFavorite() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearFavorite() => $_clearField(2);
+}
+
 class ContinueWatchingList extends $pb.GeneratedMessage {
   factory ContinueWatchingList({
     $core.Iterable<ContinueWatchingItem>? items,

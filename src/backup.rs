@@ -4,15 +4,15 @@ use anyhow::{Context, Result, anyhow};
 
 use crate::{
     sql,
-    types::{Backup, BackupChannel, BackupLockedGroup, BackupPosition, BackupSource, Source},
+    types::{Backup, BackupChannel, BackupGroup, BackupPosition, BackupSource, Source},
     utils,
 };
 
 const APP_ID: &str = "fred-tv";
 const BACKUP_VERSION: u32 = 1;
 
-// Sources (with credentials), settings, favorite lists, favorites, history and
-// watch positions as JSON. Channels themselves are re-downloaded on restore.
+// Sources (with credentials), settings, favorite lists, favorites (channels and
+// categories), history, watch positions and parental locks as JSON. Channels themselves are re-downloaded on restore.
 pub fn export_backup() -> Result<String> {
     let mut settings = sql::get_settings()?;
     settings.remove(sql::LAST_SEEN_VERSION_KEY);
@@ -46,17 +46,22 @@ pub fn export_backup() -> Result<String> {
             .collect(),
         channels: sql::get_backup_channels()?,
         positions: sql::get_backup_positions()?,
-        locked_groups: sql::get_locked_groups()?
-            .into_iter()
-            .filter_map(|(source_id, name)| {
-                Some(BackupLockedGroup {
-                    source: source_names.get(&source_id)?.clone(),
-                    name,
-                })
-            })
-            .collect(),
+        locked_groups: backup_groups(sql::get_locked_groups()?, &source_names),
+        favorite_groups: backup_groups(sql::get_favorite_groups()?, &source_names),
     };
     Ok(serde_json::to_string_pretty(&backup)?)
+}
+
+fn backup_groups(groups: Vec<(i64, String)>, source_names: &HashMap<i64, String>) -> Vec<BackupGroup> {
+    groups
+        .into_iter()
+        .filter_map(|(source_id, name)| {
+            Some(BackupGroup {
+                source: source_names.get(&source_id)?.clone(),
+                name,
+            })
+        })
+        .collect()
 }
 
 // Merges a backup into the current data and returns a summary for the user.
@@ -123,6 +128,11 @@ pub async fn import_backup(json: String) -> Result<String> {
     for group in &backup.locked_groups {
         if let Some(id) = source_ids.get(&group.source) {
             sql::lock_group_by_name(*id, &group.name)?;
+        }
+    }
+    for group in &backup.favorite_groups {
+        if let Some(id) = source_ids.get(&group.source) {
+            sql::favorite_group_by_name(*id, &group.name)?;
         }
     }
 
