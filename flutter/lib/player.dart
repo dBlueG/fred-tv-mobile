@@ -230,12 +230,8 @@ class _PlayerState extends State<Player> {
     if (!mounted) return;
     Navigator.of(context).pop();
     if (Platform.isAndroid || Platform.isIOS) {
-      SystemChrome.setPreferredOrientations([
-        DeviceOrientation.portraitUp,
-        DeviceOrientation.portraitDown,
-        DeviceOrientation.landscapeLeft,
-        DeviceOrientation.landscapeRight,
-      ]);
+      // Back to the device's own rotation setting.
+      SystemChrome.setPreferredOrientations([]);
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     }
   }

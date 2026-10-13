@@ -102,6 +102,8 @@ class _ExoPlayerScreenState extends State<ExoPlayerScreen> {
       switch (call.method) {
         case "onBack":
           _onExit();
+        case "onPipClosed":
+          _onExit(interrupted: true);
         case "switchChannel":
           return _switchChannel(call.arguments as int);
         case "nextEpisode":
@@ -172,7 +174,9 @@ class _ExoPlayerScreenState extends State<ExoPlayerScreen> {
     TaskService.instance.addLastWatched(next.id!);
   }
 
-  Future<void> _onExit() async {
+  // `interrupted`: the PiP window was dismissed, so the app is in the
+  // background; the list is shown on return, with an offer to resume.
+  Future<void> _onExit({bool interrupted = false}) async {
     if (_exiting) return;
     _exiting = true;
     if (_current.mediaType == MediaType.movie &&
@@ -190,14 +194,22 @@ class _ExoPlayerScreenState extends State<ExoPlayerScreen> {
       } catch (_) {}
     }
     if (!mounted) return;
-    Navigator.of(context).pop();
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-      DeviceOrientation.portraitDown,
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
-    ]);
+    Navigator.of(context).pop(interrupted);
+    _restoreSystemUi();
+  }
+
+  // Back to the device's own rotation setting. Listing all orientations
+  // instead would follow the sensor even with auto-rotate off.
+  void _restoreSystemUi() {
+    SystemChrome.setPreferredOrientations([]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  }
+
+  @override
+  void dispose() {
+    // Also when the screen is closed some other way than _onExit.
+    _restoreSystemUi();
+    super.dispose();
   }
 
   @override

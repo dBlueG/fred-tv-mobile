@@ -14,6 +14,7 @@ import 'package:open_tv/models/filters.dart';
 import 'package:open_tv/models/home_manager.dart';
 import 'package:open_tv/models/settings.dart';
 import 'package:open_tv/parental.dart';
+import 'package:open_tv/resume_prompt.dart';
 import 'package:open_tv/utils.dart';
 import 'package:open_tv/native_bridge.dart' as nb;
 import 'package:open_tv/setup.dart';
@@ -55,6 +56,7 @@ Future<void> main() async {
       isTV: isTV,
     ),
   );
+  if (hasSources) ResumePrompt.init();
   if (hasSources && settings.refreshOnStart) {
     TaskService.instance.refreshAll();
   }

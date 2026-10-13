@@ -92,7 +92,6 @@ class ExoPlayerView(
     private var reconnecting = false
     private var reconnectAttempts = 0
     private var switchingChannel = false
-    private var pausedByPipClose = false
     private var sleepAtMs = 0L
     // Stop when the current movie or episode ends instead of after a delay.
     private var sleepAtEnd = false
@@ -439,18 +438,12 @@ class ExoPlayerView(
         updateGestureFlags(inPip)
     }
 
-    // The PiP window was dismissed (not expanded back to full screen).
+    // The PiP window was dismissed (not expanded back to full screen). The
+    // player closes, so the app opens on the list and offers to resume.
     fun onPipClosed() {
-        if (keepAudioAfterPip || !player.playWhenReady) return
+        if (keepAudioAfterPip && player.playWhenReady) return
         player.pause()
-        pausedByPipClose = true
-    }
-
-    fun onHostResumed() {
-        if (!pausedByPipClose) return
-        pausedByPipClose = false
-        // Live streams have no play button while playing, so resume them for the user.
-        if (isLive) player.play()
+        methodChannel.invokeMethod("onPipClosed", null)
     }
 
     private fun updateGestureFlags(inPip: Boolean) {

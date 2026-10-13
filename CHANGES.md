@@ -17,6 +17,7 @@ project (`Fredolx/fred-tv-mobile`).
 | 10 | [Player settings, channel switching, double-tap seek, sleep timer](#10-player-settings-channel-switching-double-tap-seek-sleep-timer) | 2026-10-12 | Android player, settings |
 | 11 | [Continue Watching, auto-play next episode, backup and restore](#11-continue-watching-auto-play-next-episode-backup-and-restore) | 2026-10-12 | Rust core, Flutter UI, Android player |
 | 12 | [Programme guide (now/next), catch-up, parental PIN](#12-programme-guide-nownext-catch-up-parental-pin) | 2026-10-12 | Rust core, Flutter UI |
+| 13 | [Fix: list opening in landscape after the player; resume prompt](#13-fix-list-opening-in-landscape-after-the-player-resume-prompt) | 2026-10-13 | Flutter UI, Android player |
 
 Changes 1–4 and 6 only affect the Android app. iOS, macOS, Windows and Linux
 use `media_kit` for playback, so their players are unchanged. Change 7 is in the
@@ -611,7 +612,7 @@ in TV mode.
 | Double-tap to seek | On | Movies and episodes |
 | Seek amount | 10 s | 10, 15 or 30 s; used by double-tap, the ⏪/⏩ buttons and D-pad seeking |
 | Picture-in-picture | On | Off: Home leaves the player normally. Never used on Android TV |
-| Keep playing after closing picture-in-picture | Off | Off: closing the PiP window pauses playback |
+| Keep playing after closing picture-in-picture | Off | Off: closing the PiP window closes the player (see change 13) |
 
 **Changing channel in the player (livestreams).**
 - Swipe left for the next channel and right for the previous one. The channel
@@ -641,7 +642,8 @@ live edge. The button stays hidden while playing, as before.
 **PiP follow-ups (from change 2).** Closing the PiP window pauses playback unless
 "Keep playing…" is on. If a livestream was paused this way, it resumes when the app
 is opened again, since it has no play button while playing. PiP is never entered on
-Android TV (`FEATURE_LEANBACK`).
+Android TV (`FEATURE_LEANBACK`). *Change 13 replaced the pause: closing the PiP
+window now closes the player.*
 
 ### File changes
 
@@ -919,3 +921,52 @@ libraries rebuilt.
 - No full guide grid yet; the catch-up screen covers one channel at a time.
 - TV mode wasn't exercised on an Android TV image; the new screens use standard
   focusable list tiles.
+
+---
+
+## 13. Fix: list opening in landscape after the player; resume prompt
+
+**Date:** 2026-10-13
+**Branch:** `player-and-home-features`
+**Status:** Tested on the Android emulator (rotation locked to portrait).
+
+### The bug
+
+After watching something, the channel list could open in landscape even with
+auto-rotate off. On exit, the players allowed all four orientations
+(`SystemChrome.setPreferredOrientations([portraitUp, portraitDown,
+landscapeLeft, landscapeRight])`). Flutter maps that to
+`SCREEN_ORIENTATION_FULL_SENSOR`, which follows the sensor and ignores the
+rotation lock. The app starts as `UNSPECIFIED`, which respects it. Holding the
+phone sideways (or lying down) after leaving the player turned the list.
+
+### Behavior now
+
+- Leaving the player restores `UNSPECIFIED` (an empty orientation list), so the
+  list follows the device's own rotation setting again. Done on exit and in
+  `dispose`, in both the Android player and the `media_kit` player.
+- **Closing the PiP window closes the player** (it used to pause it and leave it
+  open). On return the app shows the list in the device's orientation. With
+  "Keep playing after closing picture-in-picture" on, playback continues as before.
+- **Resume prompt.** When the app is opened after the player was left this way,
+  or after the app was killed or swiped away during playback, a snackbar offers
+  **Resume <name>** for 12 seconds. Resume opens the last item in History.
+  Movies and episodes continue from their saved position.
+  - A marker file (`player_open` in the app support directory) exists while the
+    player is open, so the prompt also works after the process restarted.
+    Leaving the player normally removes it. Catch-up playback doesn't create it.
+  - Channel switching isn't available in a player opened from the prompt.
+
+### File changes
+
+- `flutter/lib/resume_prompt.dart` (new): marker file and the snackbar, shown at
+  start and when the app returns to the foreground.
+- `playback.dart`: creates or removes the marker; the player route returns `true`
+  when it closed because the PiP window was dismissed.
+- `exo_player.dart`: `onPipClosed` from native code closes the player; system
+  UI and orientation are restored on exit and in `dispose`. `player.dart`: same
+  orientation fix.
+- `main.dart`: `ResumePrompt.init()`.
+- `ExoPlayerView.kt`: `onPipClosed` pauses and tells Flutter to close the player
+  (removed `pausedByPipClose` / `onHostResumed`). `MainActivity.kt`: no
+  `onResume` hook.

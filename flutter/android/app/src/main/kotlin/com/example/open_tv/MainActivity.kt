@@ -45,11 +45,6 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    override fun onResume() {
-        super.onResume()
-        ExoPlayerView.active?.onHostResumed()
-    }
-
     private fun updatePipParams() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || !supportsPip()) return
         setPictureInPictureParams(pipParams())
