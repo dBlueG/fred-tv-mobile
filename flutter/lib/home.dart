@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -21,6 +22,7 @@ import 'package:open_tv/models/node_type.dart';
 import 'package:open_tv/models/sort_type.dart';
 import 'package:open_tv/models/view_type.dart';
 import 'package:open_tv/programme_results.dart';
+import 'package:open_tv/remote/play_on_tv.dart';
 import 'package:open_tv/select_dialog.dart';
 import 'package:open_tv/error.dart';
 import 'package:open_tv/utils.dart';
@@ -178,7 +180,9 @@ class _HomeState extends State<Home> {
           final e = epg[c.id];
           if (e == null) return !stale;
           if (!stale) return false;
-          return e.now != null ? !e.now!.isOnAt(time) : e.next?.startTime.isBefore(time) == true;
+          return e.now != null
+              ? !e.now!.isOnAt(time)
+              : e.next?.startTime.isBefore(time) == true;
         })
         .map((c) => c.id!)
         .toList();
@@ -360,10 +364,7 @@ class _HomeState extends State<Home> {
     return SliverPadding(
       padding: const EdgeInsets.fromLTRB(10, 5, 10, 10),
       sliver: SliverGrid(
-        delegate: SliverChildBuilderDelegate(
-          builder,
-          childCount: items.length,
-        ),
+        delegate: SliverChildBuilderDelegate(builder, childCount: items.length),
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: crossAxisCount,
           mainAxisExtent: 100,
@@ -454,73 +455,79 @@ class _HomeState extends State<Home> {
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.all(16),
-                      child: Center(
-                        child: TextField(
-                          focusNode: _searchFocusNode,
-                          style: TextStyle(
-                            fontSize: Theme.of(
-                              context,
-                            ).textTheme.titleMedium?.fontSize!,
-                          ),
-                          controller: searchController,
-                          textInputAction: TextInputAction.search,
-                          onEditingComplete: _focusChannelsBelow,
-                          onChanged: (query) {
-                            _debounce?.cancel();
-                            _debounce = Timer(
-                              const Duration(milliseconds: 500),
-                              () {
-                                widget.home.filters.query = query;
-                                load(false);
-                              },
-                            );
-                          },
-                          decoration: InputDecoration(
-                            hintText: "Search...",
-                            hintStyle: TextStyle(
-                              fontSize: Theme.of(
-                                context,
-                              ).textTheme.titleMedium?.fontSize!,
-                            ),
-                            prefixIcon: const Icon(Icons.search),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide.none,
-                            ),
-                            suffixIcon: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  focusNode: _keywordsFocusNode,
-                                  onPressed: () {
-                                    widget.home.filters.useKeywords =
-                                        !widget.home.filters.useKeywords;
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              focusNode: _searchFocusNode,
+                              style: TextStyle(
+                                fontSize: Theme.of(
+                                  context,
+                                ).textTheme.titleMedium?.fontSize!,
+                              ),
+                              controller: searchController,
+                              textInputAction: TextInputAction.search,
+                              onEditingComplete: _focusChannelsBelow,
+                              onChanged: (query) {
+                                _debounce?.cancel();
+                                _debounce = Timer(
+                                  const Duration(milliseconds: 500),
+                                  () {
+                                    widget.home.filters.query = query;
                                     load(false);
                                   },
-                                  icon: Icon(
-                                    widget.home.filters.useKeywords
-                                        ? Icons.label
-                                        : Icons.label_outline,
-                                  ),
+                                );
+                              },
+                              decoration: InputDecoration(
+                                hintText: "Search...",
+                                hintStyle: TextStyle(
+                                  fontSize: Theme.of(
+                                    context,
+                                  ).textTheme.titleMedium?.fontSize!,
                                 ),
-                                IconButton(
-                                  focusNode: _sortFocusNode,
-                                  onPressed: showSortDialog,
-                                  icon:
-                                      widget.home.filters.sort == null ||
-                                          widget.home.filters.sort ==
-                                              SortType.provider
-                                      ? const Icon(Icons.sort)
-                                      : widget.home.filters.sort ==
-                                            SortType.alphabeticalAsc
-                                      ? const Icon(Icons.arrow_upward)
-                                      : const Icon(Icons.arrow_downward),
+                                prefixIcon: const Icon(Icons.search),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: BorderSide.none,
                                 ),
-                              ],
+                                suffixIcon: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      focusNode: _keywordsFocusNode,
+                                      onPressed: () {
+                                        widget.home.filters.useKeywords =
+                                            !widget.home.filters.useKeywords;
+                                        load(false);
+                                      },
+                                      icon: Icon(
+                                        widget.home.filters.useKeywords
+                                            ? Icons.label
+                                            : Icons.label_outline,
+                                      ),
+                                    ),
+                                    IconButton(
+                                      focusNode: _sortFocusNode,
+                                      onPressed: showSortDialog,
+                                      icon:
+                                          widget.home.filters.sort == null ||
+                                              widget.home.filters.sort ==
+                                                  SortType.provider
+                                          ? const Icon(Icons.sort)
+                                          : widget.home.filters.sort ==
+                                                SortType.alphabeticalAsc
+                                          ? const Icon(Icons.arrow_upward)
+                                          : const Icon(Icons.arrow_downward),
+                                    ),
+                                  ],
+                                ),
+                                filled: true,
+                              ),
                             ),
-                            filled: true,
                           ),
-                        ),
+                          if (!widget.tvMode && Platform.isAndroid)
+                            const PlayOnTvButton(),
+                        ],
                       ),
                     ),
                   ),
@@ -544,10 +551,7 @@ class _HomeState extends State<Home> {
                     ),
                   if (favoriteGroups.isNotEmpty) ...[
                     _sectionTitle("Categories"),
-                    _tileGrid(favoriteGroups, crossAxisCount, (
-                      context,
-                      index,
-                    ) {
+                    _tileGrid(favoriteGroups, crossAxisCount, (context, index) {
                       return ChannelTile(
                         channel: favoriteGroups[index],
                         parentContext: context,

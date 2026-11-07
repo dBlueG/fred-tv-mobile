@@ -13,6 +13,14 @@ class DeviceDetector {
     return false;
   }
 
+  // A name for this device, shown when pairing a phone with a TV.
+  static Future<String> model() async {
+    try {
+      if (Platform.isAndroid) return (await _deviceInfo.androidInfo).model;
+    } catch (_) {}
+    return "Device";
+  }
+
   static Future<bool> _isAndroidTV() async {
     final androidInfo = await _deviceInfo.androidInfo;
     return androidInfo.systemFeatures.contains('android.software.leanback');

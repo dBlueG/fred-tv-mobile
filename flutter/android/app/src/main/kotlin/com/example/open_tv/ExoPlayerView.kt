@@ -99,6 +99,7 @@ class ExoPlayerView(
     private var countdownLeft = 0
     private var seekForward = true
     private var seekAccumulatedMs = 0L
+    private var lastReportedState: String? = null
 
     private val reconnectRunnable = Runnable {
         reconnecting = false
@@ -196,6 +197,7 @@ class ExoPlayerView(
         observeForReconnect()
         observeForPip()
         observePlayWhenReady()
+        observeForStateReports()
         session = MediaSession.Builder(context, restrictedPlayer(player, blockedCommands(isLive)))
             .setId("exoplayer_$viewId")
             .setSessionActivity(openAppIntent())
@@ -399,6 +401,24 @@ class ExoPlayerView(
         player.addListener(object : Player.Listener {
             override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) = onPipStateChanged()
             override fun onVideoSizeChanged(videoSize: VideoSize) = onPipStateChanged()
+        })
+    }
+
+    // Lets Flutter tell a phone controlling this player what it is doing.
+    private fun observeForStateReports() {
+        player.addListener(object : Player.Listener {
+            override fun onEvents(player: Player, events: Player.Events) {
+                val state = when {
+                    player.playerError != null -> "error"
+                    player.playbackState == Player.STATE_ENDED -> "ended"
+                    !player.playWhenReady -> "paused"
+                    player.isPlaying -> "playing"
+                    else -> "buffering"
+                }
+                if (state == lastReportedState) return
+                lastReportedState = state
+                methodChannel.invokeMethod("playerState", state)
+            }
         })
     }
 
@@ -787,6 +807,15 @@ class ExoPlayerView(
         when (call.method) {
             "getPosition" -> result.success(player.currentPosition)
             "getDuration" -> result.success(player.duration.takeIf { it != C.TIME_UNSET } ?: 0L)
+            "pause" -> {
+                player.pause()
+                result.success(null)
+            }
+            "resume" -> {
+                player.play()
+                if (player.playbackState == Player.STATE_IDLE) player.prepare()
+                result.success(null)
+            }
             else -> result.notImplemented()
         }
     }

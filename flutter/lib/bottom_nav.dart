@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:open_tv/models/view_type.dart';
+import 'package:open_tv/remote/play_on_tv.dart';
 import 'package:open_tv/settings_view.dart';
 import 'package:open_tv/task_service.dart';
 
@@ -61,30 +62,42 @@ class _BottomNavState extends State<BottomNav> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceBright,
-        border: Border(
-          top: BorderSide(
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const RemoteBar(),
+        Container(
+          decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.surfaceBright,
-            width: 1,
+            border: Border(
+              top: BorderSide(
+                color: Theme.of(context).colorScheme.surfaceBright,
+                width: 1,
+              ),
+            ),
+          ),
+          child: NavigationBar(
+            destinations: const [
+              NavigationDestination(icon: Icon(Icons.list), label: 'All'),
+              NavigationDestination(
+                icon: Icon(Icons.dashboard),
+                label: 'Categories',
+              ),
+              NavigationDestination(icon: Icon(Icons.star), label: 'Favorites'),
+              NavigationDestination(
+                icon: Icon(Icons.history),
+                label: "History",
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.settings),
+                label: 'Settings',
+              ),
+            ],
+            selectedIndex: _selectedIndex,
+            onDestinationSelected: onBarTapped,
           ),
         ),
-      ),
-      child: NavigationBar(
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.list), label: 'All'),
-          NavigationDestination(
-            icon: Icon(Icons.dashboard),
-            label: 'Categories',
-          ),
-          NavigationDestination(icon: Icon(Icons.star), label: 'Favorites'),
-          NavigationDestination(icon: Icon(Icons.history), label: "History"),
-          NavigationDestination(icon: Icon(Icons.settings), label: 'Settings'),
-        ],
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: onBarTapped,
-      ),
+      ],
     );
   }
 }

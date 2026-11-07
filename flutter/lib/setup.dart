@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io' show Platform;
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -16,6 +17,7 @@ import 'package:open_tv/models/steps.dart';
 import 'package:open_tv/models/view_type.dart';
 import 'package:open_tv/error.dart';
 import 'package:open_tv/native_bridge.dart';
+import 'package:open_tv/remote/ready_for_phone.dart';
 import 'package:open_tv/task_service.dart';
 import 'package:open_tv/tv_home.dart';
 
@@ -448,6 +450,17 @@ class _SetupState extends State<Setup> {
                     icon: const Icon(Icons.restore),
                     label: const Text("Restore from a backup"),
                   ),
+                  if (widget.tvMode && Platform.isAndroid)
+                    TextButton.icon(
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const ReadyForPhone(),
+                        ),
+                      ),
+                      icon: const Icon(Icons.phonelink),
+                      label: const Text("Use with my phone instead"),
+                    ),
                 ],
         );
       case Steps.sourceType:

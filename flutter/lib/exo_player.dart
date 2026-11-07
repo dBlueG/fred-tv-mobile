@@ -12,6 +12,7 @@ import 'package:open_tv/models/channel_playlist.dart';
 import 'package:open_tv/models/media_type.dart';
 import 'package:open_tv/models/settings.dart';
 import 'package:open_tv/native_bridge.dart';
+import 'package:open_tv/remote/remote_player_controller.dart';
 import 'package:open_tv/task_service.dart';
 
 class ExoPlayerScreen extends StatefulWidget {
@@ -19,13 +20,21 @@ class ExoPlayerScreen extends StatefulWidget {
   final Settings settings;
   final ChannelPlaylist? playlist;
   final bool catchup;
+  // Set on a TV playing for a phone. The channel isn't in this device's
+  // database then, so nothing is looked up or saved.
+  final RemotePlayerController? remote;
   const ExoPlayerScreen({
     super.key,
     required this.channel,
     required this.settings,
     this.playlist,
     this.catchup = false,
+    this.remote,
   });
+
+  // Closes the open player, if any, saving its position as leaving it does.
+  static Future<void> closeActive() async =>
+      _ExoPlayerScreenState._active?._close();
 
   @override
   State<ExoPlayerScreen> createState() => _ExoPlayerScreenState();
@@ -33,6 +42,7 @@ class ExoPlayerScreen extends StatefulWidget {
 
 class _ExoPlayerScreenState extends State<ExoPlayerScreen> {
   static const _viewType = "dev.fredol.open_tv/exoplayer";
+  static _ExoPlayerScreenState? _active;
 
   MethodChannel? _channel;
   // The item playing now; changes when switching channels or episodes.
@@ -47,6 +57,7 @@ class _ExoPlayerScreenState extends State<ExoPlayerScreen> {
   @override
   void initState() {
     super.initState();
+    _active = this;
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.landscapeLeft,
@@ -55,15 +66,28 @@ class _ExoPlayerScreenState extends State<ExoPlayerScreen> {
     _init();
   }
 
-  Future<ChannelHttpHeaders?> _getHeaders(Channel channel) async =>
-      (await Error.tryAsyncNoLoading(() async {
-        return await NativeBridge.instance.getChannelHeaders(channel.id!);
-      })).data;
+  Future<ChannelHttpHeaders?> _getHeaders(Channel channel) async {
+    final remote = widget.remote;
+    if (remote != null) {
+      return ChannelHttpHeaders(
+        referrer: remote.media.referer,
+        httpOrigin: remote.media.origin,
+        userAgent: remote.media.userAgent,
+      );
+    }
+    return (await Error.tryAsyncNoLoading(() async {
+      return await NativeBridge.instance.getChannelHeaders(channel.id!);
+    })).data;
+  }
 
   Future<void> _init() async {
     final headers = await _getHeaders(widget.channel);
     final settings = widget.settings;
-    final seconds = widget.channel.mediaType == MediaType.movie && !widget.catchup
+    final remote = widget.remote;
+    final seconds =
+        remote == null &&
+            widget.channel.mediaType == MediaType.movie &&
+            !widget.catchup
         ? (await Error.tryAsyncNoLoading(() async {
             return await NativeBridge.instance.getMoviePosition(
               widget.channel.id!,
@@ -75,7 +99,8 @@ class _ExoPlayerScreenState extends State<ExoPlayerScreen> {
       _creationParams = {
         "url": widget.channel.url,
         "isLive": _isLive,
-        "startPositionMs": (seconds ?? 0) * 1000,
+        "startPositionMs":
+            remote?.media.startPositionMs ?? (seconds ?? 0) * 1000,
         "title": widget.channel.name,
         "image": widget.channel.image,
         "referer": headers?.referrer,
@@ -86,10 +111,10 @@ class _ExoPlayerScreenState extends State<ExoPlayerScreen> {
         "canSwitchChannel": widget.playlist != null,
         "doubleTapSeek": settings.doubleTapSeek,
         "seekSeconds": settings.seekSeconds,
-        "pictureInPicture": settings.pictureInPicture,
+        "pictureInPicture": remote == null && settings.pictureInPicture,
         "keepAudioAfterPip": settings.keepAudioAfterPip,
         "isEpisode": widget.channel.isEpisode,
-        "autoplayNext": settings.autoplayNextEpisode,
+        "autoplayNext": remote == null && settings.autoplayNextEpisode,
         "autoplayCountdown": settings.autoplayCountdownSeconds,
       };
       _ready = true;
@@ -98,6 +123,7 @@ class _ExoPlayerScreenState extends State<ExoPlayerScreen> {
 
   void _onPlatformViewCreated(int id) {
     _channel = MethodChannel("dev.fredol.open_tv/exoplayer_$id");
+    widget.remote?.attach(_channel!, _onExit);
     _channel!.setMethodCallHandler((call) async {
       switch (call.method) {
         case "onBack":
@@ -110,6 +136,8 @@ class _ExoPlayerScreenState extends State<ExoPlayerScreen> {
           return _getNextEpisode(Map<String, dynamic>.from(call.arguments));
         case "playNext":
           _playNext();
+        case "playerState":
+          widget.remote?.onNativeState(call.arguments as String);
       }
       return null;
     });
@@ -174,6 +202,14 @@ class _ExoPlayerScreenState extends State<ExoPlayerScreen> {
     TaskService.instance.addLastWatched(next.id!);
   }
 
+  // Pausing first keeps it from being heard over whatever opens next.
+  Future<void> _close() async {
+    try {
+      await _channel?.invokeMethod("pause");
+    } catch (_) {}
+    await _onExit();
+  }
+
   // `interrupted`: the PiP window was dismissed, so the app is in the
   // background; the list is shown on return, with an offer to resume.
   Future<void> _onExit({bool interrupted = false}) async {
@@ -181,6 +217,7 @@ class _ExoPlayerScreenState extends State<ExoPlayerScreen> {
     _exiting = true;
     if (_current.mediaType == MediaType.movie &&
         !widget.catchup &&
+        widget.remote == null &&
         _channel != null) {
       try {
         final posMs = await _channel!.invokeMethod<int>("getPosition") ?? 0;
@@ -207,6 +244,7 @@ class _ExoPlayerScreenState extends State<ExoPlayerScreen> {
 
   @override
   void dispose() {
+    if (identical(_active, this)) _active = null;
     // Also when the screen is closed some other way than _onExit.
     _restoreSystemUi();
     super.dispose();

@@ -15,6 +15,8 @@ import 'package:open_tv/edit_dialog.dart';
 import 'package:open_tv/home.dart';
 import 'package:open_tv/locked_categories_view.dart';
 import 'package:open_tv/parental.dart';
+import 'package:open_tv/remote/ready_for_phone.dart';
+import 'package:open_tv/remote/tv_remote.dart';
 import 'package:open_tv/loading.dart';
 import 'package:open_tv/models/home_manager.dart';
 import 'package:open_tv/models/id_data.dart';
@@ -39,6 +41,8 @@ class _SettingsState extends State<SettingsView> {
   Settings settings = Settings();
   List<Source> sources = [];
   bool loading = true;
+  bool phoneControl = false;
+  int pairedPhones = 0;
   Future<Map<int, int>> expiriesFuture = NativeBridge.instance
       .getAllExpiries()
       .catchError((_) => <int, int>{});
@@ -65,6 +69,7 @@ class _SettingsState extends State<SettingsView> {
       NativeBridge.instance.getSettings(),
       NativeBridge.instance.getSources(),
     ]);
+    await _loadPhoneControl();
     if (!mounted) return;
     setState(() {
       settings = results[0] as Settings;
@@ -347,6 +352,71 @@ class _SettingsState extends State<SettingsView> {
         leading: const Icon(Icons.no_encryption_outlined),
         onTap: removePin,
       ),
+    ];
+  }
+
+  bool get _hasPhoneControl => widget.tvMode && Platform.isAndroid;
+
+  Future<void> _loadPhoneControl() async {
+    if (!_hasPhoneControl) return;
+    phoneControl = await TvRemote.instance.allowed;
+    pairedPhones = await TvRemote.instance.pairedPhones;
+  }
+
+  Future<void> _setPhoneControl(bool allow) async {
+    try {
+      await TvRemote.instance.setAllowed(allow);
+    } catch (_) {
+      Error.showMessage("Couldn't start phone control on this TV");
+    }
+    await _loadPhoneControl();
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _pairPhone() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ReadyForPhone()),
+    );
+    await _loadPhoneControl();
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _forgetPhones() async {
+    await TvRemote.instance.forgetPhones();
+    await _loadPhoneControl();
+    if (mounted) setState(() {});
+    Error.showMessage("Paired phones forgotten");
+  }
+
+  // On a TV: being played to from a phone on the same network.
+  List<Widget> _phoneControlSettings() {
+    if (!_hasPhoneControl) return [];
+    return [
+      const Divider(),
+      _sectionTitle("Phone control"),
+      ListTile(
+        title: const Text("Allow control from phone"),
+        subtitle: const Text(
+          "Pick what to watch on your phone. Fred TV must be open on this TV",
+        ),
+        trailing: Switch(value: phoneControl, onChanged: _setPhoneControl),
+      ),
+      ListTile(
+        title: const Text("Pair a phone"),
+        subtitle: const Text("Shows the code to enter on your phone"),
+        leading: const Icon(Icons.phonelink),
+        onTap: _pairPhone,
+      ),
+      if (pairedPhones > 0)
+        ListTile(
+          title: const Text("Forget paired phones"),
+          subtitle: Text(
+            pairedPhones == 1 ? "1 phone paired" : "$pairedPhones phones paired",
+          ),
+          leading: const Icon(Icons.phonelink_erase),
+          onTap: _forgetPhones,
+        ),
     ];
   }
 
@@ -821,6 +891,7 @@ class _SettingsState extends State<SettingsView> {
                             ),
                           ),
                         ..._playerSettings(),
+                        ..._phoneControlSettings(),
                         ..._parentalSettings(),
                         ..._backupSettings(),
                         const Divider(),

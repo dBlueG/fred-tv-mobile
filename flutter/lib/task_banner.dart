@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:open_tv/error.dart';
+import 'package:open_tv/remote/play_on_tv.dart';
+import 'package:open_tv/remote/remote_client.dart';
 import 'package:open_tv/task_service.dart';
 
 const _bottomNavHeight = 80.0;
@@ -24,6 +26,7 @@ class TaskBanner extends StatelessWidget {
                 service.runningTask,
                 service.playerVisible,
                 Error.visibleSnackBars,
+                RemoteClient.instance.connection,
               ]),
               builder: (context, _) =>
                   service.busy && !service.playerVisible.value
@@ -60,6 +63,9 @@ class _Banner extends StatelessWidget {
         left: _edgeMargin,
         bottom:
             (hasBottomNav ? _bottomNavHeight : 0) +
+            (hasBottomNav && RemoteClient.instance.active
+                ? RemoteBar.height
+                : 0) +
             (hasSnackBar ? _snackBarClearance : _edgeMargin),
       ),
       child: Material(

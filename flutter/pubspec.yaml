@@ -63,6 +63,8 @@ dependencies:
   ffi: ^2.2.0
   protobuf: ^6.0.0
   fixnum: ^1.1.0
+  bonsoir: ^7.1.5
+  wakelock_plus: ^1.5.2
 
 dev_dependencies:
   flutter_test:

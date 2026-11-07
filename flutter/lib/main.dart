@@ -14,6 +14,9 @@ import 'package:open_tv/models/filters.dart';
 import 'package:open_tv/models/home_manager.dart';
 import 'package:open_tv/models/settings.dart';
 import 'package:open_tv/parental.dart';
+import 'package:open_tv/error.dart';
+import 'package:open_tv/remote/remote_client.dart';
+import 'package:open_tv/remote/tv_remote.dart';
 import 'package:open_tv/resume_prompt.dart';
 import 'package:open_tv/utils.dart';
 import 'package:open_tv/native_bridge.dart' as nb;
@@ -56,6 +59,14 @@ Future<void> main() async {
       isTV: isTV,
     ),
   );
+  if (Platform.isAndroid) {
+    RemoteClient.instance.onMessage = Error.showMessage;
+    if (MyApp.usesTvMode(settings, isTV, hasTouchScreen)) {
+      TvRemote.instance.startIfAllowed().catchError(
+        (e) => debugPrint("Couldn't start phone control: $e"),
+      );
+    }
+  }
   if (hasSources) ResumePrompt.init();
   if (hasSources && settings.refreshOnStart) {
     TaskService.instance.refreshAll();
@@ -90,10 +101,12 @@ class MyApp extends StatelessWidget {
       Platform.isWindows ||
       Platform.isMacOS;
 
-  bool get _isTvMode =>
+  static bool usesTvMode(Settings settings, bool isTV, bool hasTouchScreen) =>
       settings.forceTVMode ||
       isTV ||
       (!hasTouchScreen && (Platform.isAndroid || Platform.isIOS));
+
+  bool get _isTvMode => usesTvMode(settings, isTV, hasTouchScreen);
 
   @override
   Widget build(BuildContext context) {
