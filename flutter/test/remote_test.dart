@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:open_tv/models/source.dart';
+import 'package:open_tv/models/source_type.dart';
 import 'package:open_tv/remote/protocol.dart';
 import 'package:open_tv/remote/remote_client.dart';
 import 'package:open_tv/remote/remote_store.dart';
@@ -11,6 +13,7 @@ import 'package:open_tv/remote/tv_server.dart';
 class FakeHost implements RemotePlayerHost {
   final played = <RemoteMedia>[];
   final commands = <String>[];
+  final sources = <RemoteSource>[];
   String? playError;
 
   @override
@@ -25,6 +28,11 @@ class FakeHost implements RemotePlayerHost {
   void resume() => commands.add("resume");
   @override
   Future<void> stop() async => commands.add("stop");
+  @override
+  Future<String> addSources(List<RemoteSource> added) async {
+    sources.addAll(added);
+    return "Added ${added.length}";
+  }
 }
 
 Future<void> until(bool Function() condition) async {
@@ -298,13 +306,150 @@ void main() {
     await until(() => host.played.isNotEmpty);
   });
 
-  test("disconnecting doesn't stop what the TV plays", () async {
+  test("sources reach the TV and the result returns to the phone", () async {
+    final messages = <String>[];
+    client.onMessage = messages.add;
+    server.openPairing();
+    await connect();
+    final sent = client.pushSources([
+      RemoteSource.fromSource(
+        Source(
+          name: "Provider",
+          sourceType: SourceType.xtream,
+          url: "http://example.test/player_api.php",
+          username: "user",
+          password: "pass",
+          locked: true,
+        ),
+      ),
+      const RemoteSource(
+        name: "Playlist",
+        sourceType: SourceType.m3uUrl,
+        url: "https://example.test/list.m3u",
+      ),
+    ]);
+    expect(sent, isTrue);
+    await until(() => messages.isNotEmpty);
+    expect(messages.single, "Added 2");
+    final first = host.sources.first;
+    expect(first.name, "Provider");
+    expect(first.sourceType, SourceType.xtream);
+    expect(first.username, "user");
+    expect(first.password, "pass");
+    expect(first.locked, isTrue);
+    expect(host.sources.last.url, "https://example.test/list.m3u");
+  });
+
+  test("a client that hasn't paired can't push sources", () async {
+    final (socket, messages) = await rawClient();
+    socket.add(jsonEncode({"type": "pushSources", "sources": []}));
+    await drained(messages);
+    expect(host.sources, isEmpty);
+  });
+
+  test("the TV refuses sources that aren't web addresses", () async {
+    server.openPairing();
+    await connect();
+    final (socket, messages) = await rawClient();
+    socket.add(
+      jsonEncode({"type": "hello", "token": tvStore.phones.single.token}),
+    );
+    expect(await messages.moveNext(), isTrue);
+    socket.add(
+      jsonEncode({
+        "type": "pushSources",
+        "sources": [
+          {
+            "name": "Sneaky",
+            "sourceType": "m3uUrl",
+            "url": "file:///data/data/secret",
+          },
+        ],
+      }),
+    );
+    await drained(messages);
+    expect(host.sources, isEmpty);
+    expect(server.running, isTrue);
+  });
+
+  test("local M3U files can't be sent", () {
+    final file = Source(
+      name: "File",
+      sourceType: SourceType.m3u,
+      url: "/storage/list.m3u",
+    );
+    final web = Source(
+      name: "Web",
+      sourceType: SourceType.m3uUrl,
+      url: "http://example.test/list.m3u",
+    );
+    expect(RemoteSource.canSend(file), isFalse);
+    expect(RemoteSource.canSend(web), isTrue);
+    expect(
+      () => RemoteSource.fromJson({
+        "name": "File",
+        "sourceType": "m3u",
+        "url": "http://example.test/list.m3u",
+      }),
+      throwsFormatException,
+    );
+  });
+
+  test("disconnecting on purpose stops what the TV plays", () async {
+    server.openPairing();
+    await connect();
+    await client.stopAndDisconnect();
+    await until(() => host.commands.isNotEmpty);
+    expect(host.commands, ["stop"]);
+    expect(client.active, isFalse);
+  });
+
+  test("a lost connection doesn't stop what the TV plays", () async {
     server.openPairing();
     await connect();
     await client.disconnect();
     await Future.delayed(const Duration(milliseconds: 100));
     expect(host.commands, isEmpty);
+  });
+
+  test("moving to another TV stops the one left behind", () async {
+    server.openPairing();
+    await connect();
+    final other = FakeHost();
+    final otherServer = TvServer(
+      store: await RemoteStore.load(File("${dir.path}/other.json")),
+      host: other,
+      name: "Other TV",
+      port: 0,
+    );
+    await otherServer.start();
+    addTearDown(otherServer.stop);
+    otherServer.openPairing();
+    await client.connect(
+      store: phoneStore,
+      host: "127.0.0.1",
+      port: otherServer.boundPort,
+      phoneName: "Test phone",
+      askCode: (_, _) async => otherServer.pairingCode.value,
+    );
+    await until(() => host.commands.isNotEmpty);
+    expect(host.commands, ["stop"]);
+    expect(other.commands, isEmpty);
+    expect(client.tvName, "Other TV");
+  });
+
+  test("stopping while the TV can't be reached says so", () async {
+    final messages = <String>[];
+    client.onMessage = messages.add;
+    server.openPairing();
+    server.publishStatus(const RemoteStatus(RemotePlayerState.playing, "News"));
+    await connect();
+    await until(() => client.status.value.title == "News");
+    await server.stop();
+    await until(() => client.connection.value == RemoteConnection.reconnecting);
+    await client.stopAndDisconnect();
     expect(client.active, isFalse);
+    expect(messages.single, contains("may still be playing"));
   });
 
   test("pairing state survives a restart", () async {

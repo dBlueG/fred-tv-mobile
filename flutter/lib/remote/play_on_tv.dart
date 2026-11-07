@@ -2,7 +2,12 @@ import 'dart:async';
 
 import 'package:bonsoir/bonsoir.dart';
 import 'package:flutter/material.dart';
+import 'package:open_tv/error.dart';
 import 'package:open_tv/models/device_detector.dart';
+import 'package:open_tv/models/source.dart';
+import 'package:open_tv/models/source_type.dart';
+import 'package:open_tv/native_bridge.dart';
+import 'package:open_tv/parental.dart';
 import 'package:open_tv/remote/protocol.dart';
 import 'package:open_tv/remote/remote_client.dart';
 import 'package:open_tv/remote/remote_store.dart';
@@ -223,13 +228,36 @@ class _PlayOnTvSheetState extends State<_PlayOnTvSheet> {
   }
 
   Future<void> _forget(_Tv tv) async {
-    if (tv.id == client.tvId) await client.disconnect();
+    if (tv.id == client.tvId) await client.stopAndDisconnect();
     await store?.forgetTv(tv.id!);
     if (mounted) setState(() {});
   }
 
   Future<void> _disconnect() async {
-    await client.disconnect();
+    await client.stopAndDisconnect();
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  Future<void> _sendSources() async {
+    final chosen = await showDialog<List<Source>>(
+      context: context,
+      builder: (_) => const _SendSourcesDialog(),
+    );
+    if (chosen == null || chosen.isEmpty || !mounted) return;
+    // A locked source would be open on a TV without a PIN.
+    if (chosen.any((s) => s.locked) && !await ParentalControl.unlock(context)) {
+      return;
+    }
+    final sent = client.pushSources([
+      for (final source in chosen) RemoteSource.fromSource(source),
+    ]);
+    if (!sent) {
+      if (mounted) setState(() => error = "Couldn't reach the TV");
+      return;
+    }
+    Error.showMessage(
+      "Sending to ${client.tvName ?? "the TV"}. It will download the channels",
+    );
     if (mounted) Navigator.of(context).pop();
   }
 
@@ -240,7 +268,7 @@ class _PlayOnTvSheetState extends State<_PlayOnTvSheet> {
       title: Text(tv.name),
       subtitle: Text(
         current
-            ? "Connected. It keeps playing if you disconnect"
+            ? "Connected. Tap to stop playing and disconnect"
             : tv.discovered
             ? (tv.saved ? "Paired" : "Tap to pair")
             : "Paired, not found on this network",
@@ -295,6 +323,13 @@ class _PlayOnTvSheetState extends State<_PlayOnTvSheet> {
                   "to Settings and choose \"Pair a phone\".",
                 ),
               ),
+            if (client.connected)
+              ListTile(
+                leading: const Icon(Icons.playlist_add),
+                title: const Text("Send sources to this TV"),
+                subtitle: const Text("So you don't have to type them on it"),
+                onTap: connecting ? null : _sendSources,
+              ),
             ListTile(
               leading: const Icon(Icons.edit),
               title: const Text("Enter the TV's address"),
@@ -303,6 +338,99 @@ class _PlayOnTvSheetState extends State<_PlayOnTvSheet> {
           ],
         ),
       ),
+    );
+  }
+}
+
+// Picks which of this phone's sources to send. Returns them, or null.
+class _SendSourcesDialog extends StatefulWidget {
+  const _SendSourcesDialog();
+
+  @override
+  State<_SendSourcesDialog> createState() => _SendSourcesDialogState();
+}
+
+class _SendSourcesDialogState extends State<_SendSourcesDialog> {
+  List<Source>? sources;
+  final Set<int> chosen = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final result = await Error.tryAsyncNoLoading(
+      () => NativeBridge.instance.getSources(),
+    );
+    if (!mounted) return;
+    setState(() {
+      sources = result.data ?? [];
+      chosen.addAll([
+        for (final (i, source) in sources!.indexed)
+          if (RemoteSource.canSend(source) && !source.locked) i,
+      ]);
+    });
+  }
+
+  Widget _tile(int index, Source source) {
+    final canSend = RemoteSource.canSend(source);
+    return CheckboxListTile(
+      value: chosen.contains(index),
+      title: Text(source.name),
+      subtitle: Text(
+        !canSend
+            ? "Local file, can't be sent"
+            : source.locked
+            ? "${source.sourceType.label}, locked (asks for your PIN)"
+            : source.sourceType.label,
+      ),
+      onChanged: canSend
+          ? (checked) => setState(
+              () => checked == true ? chosen.add(index) : chosen.remove(index),
+            )
+          : null,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final sources = this.sources;
+    return AlertDialog(
+      title: const Text("Send sources to the TV"),
+      contentPadding: const EdgeInsets.only(top: 16),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: sources == null
+            ? const Center(heightFactor: 2, child: CircularProgressIndicator())
+            : ListView(
+                shrinkWrap: true,
+                children: [
+                  ...sources.indexed.map((e) => _tile(e.$1, e.$2)),
+                  const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Text(
+                      "Logins go over your home network without encryption.",
+                    ),
+                  ),
+                ],
+              ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text("Cancel"),
+        ),
+        TextButton(
+          onPressed: chosen.isEmpty
+              ? null
+              : () => Navigator.of(
+                  context,
+                ).pop([for (final i in chosen) sources![i]]),
+          child: const Text("Send"),
+        ),
+      ],
     );
   }
 }
@@ -451,9 +579,9 @@ class RemoteBar extends StatelessWidget {
                   ),
                 ],
                 IconButton(
-                  tooltip: "Disconnect",
+                  tooltip: "Stop and disconnect",
                   icon: const Icon(Icons.close),
-                  onPressed: client.disconnect,
+                  onPressed: client.stopAndDisconnect,
                 ),
               ],
             ),

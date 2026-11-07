@@ -1,3 +1,6 @@
+import 'package:open_tv/models/source.dart';
+import 'package:open_tv/models/source_type.dart';
+
 // Messages between the phone and Fred TV on an Android TV, as JSON text over a
 // WebSocket on the local network. The TV sends "server" as soon as a client
 // connects; the client then answers with "hello" (paired) or "pair" (new).
@@ -59,6 +62,76 @@ class RemoteMedia {
     origin: json["origin"] as String?,
     userAgent: json["userAgent"] as String?,
   );
+}
+
+// A source sent to the TV, which downloads its channels itself.
+class RemoteSource {
+  final String name;
+  final SourceType sourceType;
+  final String url;
+  final String? username;
+  final String? password;
+  final bool locked;
+
+  const RemoteSource({
+    required this.name,
+    required this.sourceType,
+    required this.url,
+    this.username,
+    this.password,
+    this.locked = false,
+  });
+
+  // A local M3U file exists only on the phone, so it can't be sent.
+  static bool canSend(Source source) =>
+      source.sourceType != SourceType.m3u && source.url != null;
+
+  factory RemoteSource.fromSource(Source source) => RemoteSource(
+    name: source.name,
+    sourceType: source.sourceType,
+    url: source.url!,
+    username: source.username,
+    password: source.password,
+    locked: source.locked,
+  );
+
+  Source toSource() => Source(
+    name: name,
+    sourceType: sourceType,
+    url: url,
+    username: username,
+    password: password,
+  );
+
+  Map<String, dynamic> toJson() => {
+    "name": name,
+    "sourceType": sourceType.name,
+    "url": url,
+    "username": username,
+    "password": password,
+    "locked": locked,
+  };
+
+  // Throws on a malformed source, or one the TV shouldn't load: only web
+  // addresses, so a message can't point it at a file on the TV.
+  factory RemoteSource.fromJson(Map<String, dynamic> json) {
+    final url = json["url"] as String;
+    final type = SourceType.values.byName(json["sourceType"] as String);
+    final scheme = Uri.parse(url).scheme;
+    if (type == SourceType.m3u || (scheme != "http" && scheme != "https")) {
+      throw const FormatException("Source can't be sent");
+    }
+    final name = (json["name"] as String).trim();
+    if (name.isEmpty) throw const FormatException("Source has no name");
+    return RemoteSource(
+      name: name,
+      sourceType: type,
+      url: url,
+      username: json["username"] as String?,
+      password: json["password"] as String?,
+      locked: json["locked"] as bool? ?? false,
+    );
+  }
 }
 
 class RemoteStatus {

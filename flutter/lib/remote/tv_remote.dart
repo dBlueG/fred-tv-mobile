@@ -3,14 +3,18 @@ import 'dart:async';
 import 'package:bonsoir/bonsoir.dart';
 import 'package:flutter/material.dart';
 import 'package:open_tv/app_keys.dart';
+import 'package:open_tv/error.dart';
 import 'package:open_tv/exo_player.dart';
 import 'package:open_tv/models/device_detector.dart';
 import 'package:open_tv/native_bridge.dart';
+import 'package:open_tv/parental.dart';
 import 'package:open_tv/playback.dart';
 import 'package:open_tv/remote/protocol.dart';
 import 'package:open_tv/remote/remote_player_controller.dart';
 import 'package:open_tv/remote/remote_store.dart';
 import 'package:open_tv/remote/tv_server.dart';
+import 'package:open_tv/task_service.dart';
+import 'package:open_tv/tv_home.dart';
 
 // The phone control feature on a TV: runs the server, advertises it on the
 // network and opens the player for what a phone sends.
@@ -139,11 +143,70 @@ class TvRemote implements RemotePlayerHost {
   }
 
   @override
+  Future<String> addSources(List<RemoteSource> sources) async {
+    final tasks = TaskService.instance;
+    final hadSources = await NativeBridge.instance.hasSources();
+    final result = await tasks.addSources(
+      [for (final source in sources) source.toSource()],
+      {
+        for (final source in sources)
+          if (source.locked) source.name,
+      },
+    );
+    if (result == null) return "The TV is busy, try again in a moment";
+    final summary = _summary(result);
+    Error.showMessage(summary);
+    if (!hadSources && result.added.isNotEmpty) _leaveSetup();
+    return summary;
+  }
+
+  String _summary(SourcesAdded result) {
+    final parts = [
+      if (result.added.isNotEmpty)
+        "Added to the TV: ${result.added.map((s) => s.name).join(", ")}.",
+      if (result.alreadyThere.isNotEmpty)
+        "Already on the TV: ${result.alreadyThere.join(", ")}.",
+      if (result.failed.isNotEmpty)
+        "Couldn't add: ${result.failed.join(", ")}.",
+      if (result.added.any((s) => s.locked) && !ParentalControl.hasPin)
+        "Set a PIN on the TV to hide locked sources.",
+    ];
+    return parts.isEmpty ? "No sources were sent" : parts.join(" ");
+  }
+
+  // The first source: the TV was on the setup screen. Waits for a player to
+  // close, as replacing the screens would close it too.
+  void _leaveSetup() {
+    final visible = TaskService.instance.playerVisible;
+    if (visible.value) {
+      late final VoidCallback listener;
+      listener = () {
+        if (visible.value) return;
+        visible.removeListener(listener);
+        _leaveSetup();
+      };
+      visible.addListener(listener);
+      return;
+    }
+    navigatorKey.currentState?.pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const TvHome()),
+      (route) => false,
+    );
+  }
+
+  @override
   void pause() => _player?.pause();
 
   @override
   void resume() => _player?.resume();
 
   @override
-  Future<void> stop() async => await _player?.close();
+  Future<void> stop() {
+    // In turn, so that it can't overtake a play request still opening.
+    final result = _queue.then((_) async {
+      if (_player != null) await ExoPlayerScreen.closeActive();
+    });
+    _queue = result.then((_) {}, onError: (_) {});
+    return result;
+  }
 }

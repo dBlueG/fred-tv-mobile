@@ -123,7 +123,7 @@ class _ExoPlayerScreenState extends State<ExoPlayerScreen> {
 
   void _onPlatformViewCreated(int id) {
     _channel = MethodChannel("dev.fredol.open_tv/exoplayer_$id");
-    widget.remote?.attach(_channel!, _onExit);
+    widget.remote?.attach(_channel!);
     _channel!.setMethodCallHandler((call) async {
       switch (call.method) {
         case "onBack":

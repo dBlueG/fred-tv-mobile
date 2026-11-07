@@ -4,6 +4,12 @@ import 'package:open_tv/models/favorite_list.dart';
 import 'package:open_tv/models/source.dart';
 import 'package:open_tv/native_bridge.dart';
 
+class SourcesAdded {
+  final List<Source> added = [];
+  final List<String> alreadyThere = [];
+  final List<String> failed = [];
+}
+
 class TaskService {
   TaskService._();
   static final TaskService instance = TaskService._();
@@ -18,6 +24,7 @@ class TaskService {
   static const _refreshLabel = "Refresh in progress";
   static const _deleteSourceLabel = "Deleting source";
   static const _restoreLabel = "Restoring backup";
+  static const _addSourcesLabel = "Adding sources";
 
   bool get busy => runningTask.value != null;
 
@@ -142,6 +149,50 @@ class TaskService {
       runningTask.value = null;
     }
   }
+
+  // Adds sources and downloads their channels, leaving out those already here
+  // by name or account. Returns null if something else is running. One source
+  // failing doesn't stop the others.
+  Future<SourcesAdded?> addSources(
+    List<Source> sources,
+    Set<String> lockedNames,
+  ) async {
+    if (busy) return null;
+    runningTask.value = _addSourcesLabel;
+    final result = SourcesAdded();
+    try {
+      for (final source in sources) {
+        try {
+          final existing = await NativeBridge.instance.getSources();
+          if (existing.any((e) => _sameSource(e, source))) {
+            result.alreadyThere.add(source.name);
+            continue;
+          }
+          await NativeBridge.instance.processSource(source);
+          if (lockedNames.contains(source.name)) {
+            final sources = await NativeBridge.instance.getSources();
+            final added = sources.firstWhere((s) => s.name == source.name);
+            await NativeBridge.instance.setSourceLocked(added.id!, true);
+            source.locked = true;
+          }
+          result.added.add(source);
+        } catch (e) {
+          debugPrint("Couldn't add source: $e");
+          result.failed.add(source.name);
+        }
+      }
+    } finally {
+      runningTask.value = null;
+    }
+    if (result.added.isNotEmpty) updateGuides();
+    return result;
+  }
+
+  bool _sameSource(Source a, Source b) =>
+      a.name == b.name ||
+      (a.sourceType == b.sourceType &&
+          a.url == b.url &&
+          a.username == b.username);
 
   Future<void> refreshAll() async {
     await _run(

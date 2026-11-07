@@ -42,7 +42,7 @@ class RemoteClient {
     RemoteConnection.disconnected,
   );
   final ValueNotifier<RemoteStatus> status = ValueNotifier(RemoteStatus.idle);
-  // Errors reported by the TV, and losing the pairing.
+  // Errors and results reported by the TV, and losing the pairing.
   void Function(String message)? onMessage;
 
   RemoteStore? _store;
@@ -69,7 +69,8 @@ class RemoteClient {
     required String phoneName,
     required AskPairingCode askCode,
   }) async {
-    await disconnect();
+    // Moving to another TV ends the session on the one left behind.
+    await stopAndDisconnect();
     final generation = _generation;
     _store = store;
     _phoneName = phoneName;
@@ -102,11 +103,30 @@ class RemoteClient {
     await socket?.close();
   }
 
+  // Ends the session the way the user asked to: what the TV plays for the phone
+  // stops too. Only a lost connection leaves it playing.
+  Future<void> stopAndDisconnect() async {
+    if (connection.value == RemoteConnection.reconnecting) {
+      await _reconnectNow();
+    }
+    final tv = tvName ?? "The TV";
+    final hadMedia = status.value.state != RemotePlayerState.idle;
+    final stopped = _send({"type": "stop"});
+    await disconnect();
+    if (!stopped && hadMedia) {
+      onMessage?.call("Couldn't reach $tv. It may still be playing");
+    }
+  }
+
   // False when the TV can't be reached right now.
   Future<bool> play(RemoteMedia media) async {
     if (!connected && !await _reconnectNow()) return false;
     return _send({"type": "play", "media": media.toJson()});
   }
+
+  // The TV reports back through onMessage once it has downloaded them.
+  bool pushSources(List<RemoteSource> sources) =>
+      _send({"type": "pushSources", "sources": sources});
 
   void pause() => _send({"type": "pause"});
   void resume() => _send({"type": "resume"});
@@ -245,6 +265,7 @@ class RemoteClient {
           case "status":
             status.value = RemoteStatus.fromJson(json);
           case "error":
+          case "notice":
             onMessage?.call(json["message"] as String);
         }
       }

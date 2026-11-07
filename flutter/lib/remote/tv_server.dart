@@ -14,6 +14,8 @@ abstract class RemotePlayerHost {
   void pause();
   void resume();
   Future<void> stop();
+  // Returns a summary to show on the phone.
+  Future<String> addSources(List<RemoteSource> sources);
 }
 
 // The TV's end of the link. Only paired phones may send commands: stream links
@@ -212,10 +214,25 @@ class TvServer {
         host.resume();
       case "stop":
         host.stop();
+      case "pushSources":
+        final sources = [
+          for (final source in json["sources"] as List<dynamic>)
+            RemoteSource.fromJson(source as Map<String, dynamic>),
+        ];
+        host
+            .addSources(sources)
+            .then(
+              (summary) => _sendNotice(socket, summary),
+              onError: (_) =>
+                  _sendError(socket, "The TV couldn't add the sources"),
+            );
       default:
         throw const FormatException("Unknown command");
     }
   }
+
+  void _sendNotice(WebSocket socket, String message) =>
+      _send(socket, {"type": "notice", "message": message});
 
   void _sendError(WebSocket socket, String? message) {
     if (message != null) _send(socket, {"type": "error", "message": message});
